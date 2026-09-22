@@ -165,6 +165,10 @@ model YoutubeScript {
   seoChapters     Json?
   titleVariants   Json?
   thumbnailConcept String?
+  // Render output (shorts)
+  videoUrl        String?
+  thumbnailUrl    String?
+  render          YoutubeRender?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -177,6 +181,22 @@ model YoutubeFeedback {
   reason String?
   type   String?
   date   DateTime @default(now())
+}
+
+model YoutubeRender {
+  id             String   @id @default(cuid())
+  scriptId       String   @unique
+  script         YoutubeScript @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  status         String   @default("queued") // queued | rendering | rendered | failed
+  videoPath      String?
+  thumbnailPath  String?
+  durationMs     Int?
+  error          String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
 }
 
 model LongformScript {

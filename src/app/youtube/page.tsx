@@ -48,7 +48,7 @@ interface Script {
   rejectedReason?: string;
   factCheck?: { status: string; verified: number; issues: string[]; sourceUrls?: string[] };
   fullScript?: string;
-  status: "draft" | "approved" | "tofilm" | "filmed" | "rejected";
+  status: "draft" | "approved" | "tofilm" | "filmed" | "rejected" | "rendered" | "render_queued";
   createdAt: string;
   // SEO Package
   seoTitle?: string;
@@ -73,7 +73,7 @@ export default function YouTubePage() {
   const [generatedScript, setGeneratedScript] = useState<Script | null>(null);
   const [scripts, setScripts] = useState<Script[]>([]);
   const [activeView, setActiveView] = useState<"longform" | "shorts" | "performance" | "outliers">("longform");
-  const [shortsView, setShortsView] = useState<"ideas" | "scripts" | "tofilm" | "filmed">("ideas");
+  const [shortsView, setShortsView] = useState<"ideas" | "scripts" | "renders" | "tofilm" | "filmed">("ideas");
   const [generatingIdeas, setGeneratingIdeas] = useState(false);
   const [selectedIdeas, setSelectedIdeas] = useState<Set<string>>(new Set());
   const [batchGenerating, setBatchGenerating] = useState(false);
@@ -202,6 +202,33 @@ export default function YouTubePage() {
   const rejectedScripts = scripts.filter(s => s.status === "rejected");
   const tofilmScripts = scripts.filter(s => s.status === "tofilm");
   const filmedScripts = scripts.filter(s => s.status === "filmed");
+  const renderedScripts = scripts.filter(s => s.status === "rendered");
+  const renderQueuedScripts = scripts.filter(s => s.status === "render_queued");
+  const renderAll = [...renderQueuedScripts, ...renderedScripts];
+  const [rendersBusy, setRendersBusy] = useState<Set<string>>(new Set());
+
+  async function queueRender(id: string) {
+    setRendersBusy(prev => new Set(prev).add(id));
+    try {
+      const res = await fetch("/api/youtube/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scriptId: id }),
+      });
+      if (res.ok) fetchScripts();
+      else alert((await res.json().catch(() => ({}))).error || "Render queue failed");
+    } catch { /* empty */ }
+    setRendersBusy(prev => { const n = new Set(prev); n.delete(id); return n; });
+  }
+
+  async function setRenderStatus(id: string, status: "tofilm" | "rejected" | "draft") {
+    await fetch("/api/youtube/scripts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    fetchScripts();
+  }
 
   // small ghost copy button
   const copyBtn = "text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--surface-2)] text-[var(--text-2)] border border-[var(--line)] hover:text-[var(--text)] transition-colors";
@@ -421,6 +448,47 @@ export default function YouTubePage() {
                 </>
               )}
 
+              {script.status === "approved" && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); queueRender(script.id); }}
+                  disabled={rendersBusy.has(script.id)}
+                  className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors disabled:opacity-60"
+                  style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
+                >{rendersBusy.has(script.id) ? "⏳ Queuing..." : "✨ Render Shorts"}</button>
+              )}
+
+              {script.status === "render_queued" && (
+                <>
+                  <span className="text-xs px-3 py-1.5 rounded-[var(--r-md)] animate-pulse" style={{ color: "var(--warn)", background: "color-mix(in srgb, var(--warn) 14%, transparent)" }}>
+                    ⏳ Rendering...
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => updateScript(script.id, { status: "approved" })}>↩ Cancel</Button>
+                </>
+              )}
+
+              {script.status === "rendered" && (
+                <>
+                  <a
+                    href={`/api/youtube/render/file?scriptId=${script.id}&kind=video`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors"
+                    style={{ color: "var(--up)", background: "color-mix(in srgb, var(--up) 12%, transparent)" }}
+                  >▶ Preview</a>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRenderStatus(script.id, "tofilm"); }}
+                    className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors"
+                    style={{ color: "var(--up)", background: "color-mix(in srgb, var(--up) 12%, transparent)" }}
+                  >✓ Approve</button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRenderStatus(script.id, "rejected"); }}
+                    className="text-xs px-3 py-1.5 rounded-[var(--r-md)] transition-colors"
+                    style={{ color: "var(--down)", background: "color-mix(in srgb, var(--down) 12%, transparent)" }}
+                  >✗ Reject</button>
+                </>
+              )}
+
               {script.status === "tofilm" && (
                 <>
                   <button
@@ -490,9 +558,10 @@ export default function YouTubePage() {
       {/* SHORTS SUB-NAV */}
       {activeView === "shorts" && (
         <div className="flex gap-2 mt-4 mb-2">
-          {([
+          {([ 
             { key: "ideas" as const, label: "💡 Ideas", count: ideas.length },
             { key: "scripts" as const, label: "📜 Scripts", count: draftScripts.length },
+            { key: "renders" as const, label: "🎞 Renders", count: renderAll.length },
             { key: "tofilm" as const, label: "🎬 To Film", count: tofilmScripts.length },
             { key: "filmed" as const, label: "✅ Filmed", count: filmedScripts.length },
           ]).map(tab => (
@@ -663,6 +732,84 @@ export default function YouTubePage() {
               (scriptTab === "draft" ? draftScripts : rejectedScripts).map(s => <ScriptCard key={s.id} script={s} compact />)
             )}
           </div>
+        </div>
+      )}
+
+      {/* RENDERS VIEW */}
+      {activeView === "shorts" && shortsView === "renders" && (
+        <div className="space-y-3">
+          {renderAll.length === 0 ? (
+            <Panel>
+              <EmptyState icon={<span className="text-3xl">🎞️</span>} title="No renders yet" hint="Approve a script, then hit ✨ Render Shorts" />
+            </Panel>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {renderAll.map(s => {
+                const isRendered = s.status === "rendered";
+                const isQueued = s.status === "render_queued";
+                return (
+                  <Panel key={s.id} className="p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-[var(--text)] line-clamp-2 leading-snug">{s.title}</p>
+                      {isQueued && (
+                        <span className="shrink-0 text-[9px] px-2 py-1 rounded-full animate-pulse" style={{ color: "var(--warn)", background: "color-mix(in srgb, var(--warn) 14%, transparent)" }}>
+                          ⏳ rendering
+                        </span>
+                      )}
+                      {isRendered && (
+                        <span className="shrink-0 text-[9px] px-2 py-1 rounded-full" style={{ color: "var(--up)", background: "color-mix(in srgb, var(--up) 14%, transparent)" }}>
+                          ✓ rendered
+                        </span>
+                      )}
+                    </div>
+
+                    {isRendered ? (
+                      <div className="rounded-[var(--r-md)] overflow-hidden border border-[var(--line)] bg-black aspect-[9/16]">
+                        <video
+                          src={`/api/youtube/render/file?scriptId=${s.id}&kind=video`}
+                          poster={`/api/youtube/render/file?scriptId=${s.id}&kind=thumb`}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--surface-2)] aspect-[9/16] flex items-center justify-center">
+                        <span className="text-xs text-[var(--text-3)] animate-pulse">🎬 Rendering…</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isRendered && (
+                        <>
+                          <a
+                            href={`/api/youtube/render/file?scriptId=${s.id}&kind=video`}
+                            download={`${s.title.slice(0, 40).replace(/[^a-z0-9]+/gi, "-")}.mp4`}
+                            className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors"
+                            style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
+                          >⬇ Download</a>
+                          <button
+                            onClick={() => setRenderStatus(s.id, "tofilm")}
+                            className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors"
+                            style={{ color: "var(--up)", background: "color-mix(in srgb, var(--up) 12%, transparent)" }}
+                          >✓ Approved → Film</button>
+                          <button
+                            onClick={() => setRenderStatus(s.id, "rejected")}
+                            className="text-xs px-3 py-1.5 rounded-[var(--r-md)] transition-colors"
+                            style={{ color: "var(--down)", background: "color-mix(in srgb, var(--down) 12%, transparent)" }}
+                          >✗ Reject</button>
+                        </>
+                      )}
+                      {isQueued && (
+                        <Button size="sm" variant="ghost" onClick={() => updateScript(s.id, { status: "approved" })}>↩ Cancel</Button>
+                      )}
+                    </div>
+                  </Panel>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
