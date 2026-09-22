@@ -97,48 +97,89 @@ async function fetchTwitter(u) {
 }
 
 async function fetchNews(u) {
-  const res = await fetch(`https://r.jina.ai/${u}`, {
-    headers: { "User-Agent": "Mozilla/5.0 (shorts-renderer/1.0)", "X-Return-Format": "markdown" },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!res.ok) err(`jina ${res.status}`);
-  const text = (await res.text()).trim();
+  // Strategy: fetch the page directly, extract OG meta + readable text
+  // with lightweight heuristics. Jina Reader kept as a fallback only.
+  let html = "";
+  try {
+    const res = await fetch(u, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(25000),
+    });
+    if (res.ok) html = await res.text();
+  } catch { /* fallthrough to Jina */ }
 
-  // Jina frontmatter: Title, URL, date, author, then body
+  // Parse OG meta + title + author + paragraphs from raw HTML.
   let title = "";
   let author = "";
   let published = "";
-  let body = text;
-  const fm = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (fm) {
-    body = fm[2].trim();
-    const titleM = fm[1].match(/^Title:\s*(.+)$/m);
-    const authorM = fm[1].match(/^Author:\s*(.+)$/m);
-    const dateM = fm[1].match(/^(?:date|Date|Published):\s*(.+)$/m);
-    if (titleM) title = titleM[1].trim();
-    if (authorM) author = authorM[1].trim();
-    if (dateM) published = dateM[1].trim();
-  }
-  if (!title) {
-    const h = body.match(/^#\s+(.+)$/m);
-    if (h) title = h[1].trim();
-  }
-  if (!title) title = u;
+  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+  const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+  const htmlTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const authorM = html.match(/<meta[^>]+name=["']author["'][^>]+content=["']([^"']+)["']/i);
+  const dateM = html.match(/<meta[^>]+(?:property|name)=["'](?:article:published_time|date|publishdate)["'][^>]+content=["']([^"']+)["']/i);
 
-  // Keep the first N paragraphs as the "news excerpt" (headlines + key facts)
-  const paras = body
-    .split(/\n\s*\n/)
-    .map((s) => s.replace(/^#{1,3}\s+/, "").trim())
-    .filter((s) => s.length > 40 && s.length < 500 && !/^https?:\/\//i.test(s));
+  if (ogTitle) title = ogTitle[1].trim();
+  if (!title && htmlTitle) title = htmlTitle[1].trim().replace(/\s*[-|]\s*[^-|]*$/, "").trim();
+  if (ogDesc) { /* keep for excerpt */ }
+  if (authorM) author = authorM[1].trim();
+  if (dateM) published = dateM[1].trim();
+
+  // Extract paragraphs from <p> tags (strip tags/links).
+  const bodyParas = [];
+  const pRe = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let m;
+  while ((m = pRe.exec(html)) && bodyParas.length < 10) {
+    const txt = m[1]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (txt.length > 60 && txt.length < 600) bodyParas.push(txt);
+  }
+
+  // Fallback: Jina Reader (may fail on sites that block it).
+  let excerpt = ogDesc ? ogDesc[1].trim().slice(0, 400) : (bodyParas.join("\n\n") || "");
+  if (!bodyParas.length && !excerpt) {
+    try {
+      const j = await fetch(`https://r.jina.ai/${u}`, {
+        headers: { "User-Agent": "Mozilla/5.0 (shorts-renderer/1.0)", "X-Return-Format": "markdown" },
+        signal: AbortSignal.timeout(25000),
+      });
+      if (j.ok) {
+        const text = (await j.text()).trim();
+        const cleaned = text
+          .replace(/^URL Source:.*$/m, "")
+          .replace(/^Markdown Content:.*$/m, "")
+          .split(/\n\s*\n/)
+          .map((s) => s.replace(/^#{1,4}\s+/, "").trim())
+          .filter((s) => s.length > 40 && s.length < 500)
+          .filter((s) => !/^!\[/.test(s));
+        if (!title) {
+          const h1 = text.match(/^#\s+(.+)$/m);
+          if (h1) title = h1[1].trim();
+        }
+        excerpt = cleaned.slice(0, 2).join("\n\n");
+        bodyParas.push(...cleaned.slice(0, 6));
+      }
+    } catch { /* keep what we have */ }
+  }
+
+  if (!title && !excerpt) err("could not extract article content");
 
   return {
     type: "news",
     url: u,
-    title: title.slice(0, 200),
+    title: (title || u).slice(0, 200),
     author: author.slice(0, 100),
     published: published.slice(0, 60),
-    excerpt: paras.slice(0, 4).join("\n\n"),
-    paragraphs: paras.slice(0, 8),
+    excerpt: excerpt.slice(0, 600),
+    paragraphs: bodyParas.slice(0, 8),
   };
 }
 
