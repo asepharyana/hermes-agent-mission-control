@@ -29,6 +29,7 @@ const EDGE_TTS_BIN =
     ? "/home/code/.hermes/hermes-agent/venv/bin/edge-tts"
     : "edge-tts");
 const VOICE = process.env.TTS_VOICE || "en-US-ChristopherNeural";
+const VOICE_TIPS = process.env.TTS_VOICE_TIPS || "en-US-GuyNeural"; // tech/explainer
 const CHROME = process.env.CHROME_BIN || "/usr/bin/google-chrome-stable";
 const MAX_TOTAL_SEC = 60;
 const FPS = 30;
@@ -111,12 +112,12 @@ function sh(cmd, args, opts = {}) {
   return r;
 }
 
-function tts(text, outBase) {
+function tts(text, outBase, voice = VOICE) {
   const out = `${outBase}.mp3`;
   const srt = `${outBase}.sentences.json`;
   sh(
     TTS_PYTHON,
-    [TTS_WORDS_PY, text, VOICE, out, srt],
+    [TTS_WORDS_PY, text, voice, out, srt],
     { timeout: 60_000, env: { ...process.env } }
   );
   let sentences = [];
@@ -166,18 +167,29 @@ function extractStatData(text) {
 
 /** Build segment text list from a YoutubeScript's structured fields. */
 function buildSegments(script) {
+  const isTips = script.category === "ai-agent-tips";
   const segs = [];
   const push = (text, label, highlight) => {
     const clean = (text || "").trim();
     const chunk = clean.length > 180 ? clean.slice(0, 180) + "…" : clean;
     if (chunk) segs.push({ text: chunk, label, highlight });
   };
-  push(script.hook, "HOOK", script.hook);
-  push(script.onScreenText, "ON SCREEN", script.onScreenText);
-  push(script.storySetup, "THE STORY", null);
-  push(script.conflict, "THE CONFLICT", null);
-  push(script.insight, "THE INSIGHT", null);
-  push(script.cta, "CTA", null);
+  // For AI-agent tips: labels = MISTAKE / THE FIX instead of THE STORY / ...
+  if (isTips) {
+    push(script.hook, "HOOK", script.hook);
+    push(script.onScreenText, "ON SCREEN", script.onScreenText);
+    push(script.storySetup, "THE MISTAKE", null);
+    push(script.conflict, "WHY IT FAILS", null);
+    push(script.insight, "THE FIX", null);
+    push(script.cta, "CTA", null);
+  } else {
+    push(script.hook, "HOOK", script.hook);
+    push(script.onScreenText, "ON SCREEN", script.onScreenText);
+    push(script.storySetup, "THE STORY", null);
+    push(script.conflict, "THE CONFLICT", null);
+    push(script.insight, "THE INSIGHT", null);
+    push(script.cta, "CTA", null);
+  }
   if (segs.length === 0) push(script.fullScript || script.title, script.title || "SHORTS", null);
   return segs;
 }
@@ -194,7 +206,7 @@ async function renderScript(script) {
   const voiced = [];
   for (let i = 0; i < baseSegs.length; i++) {
     const s = baseSegs[i];
-    const t = tts(s.text, path.join(work, `seg${i}`));
+    const t = tts(s.text, path.join(work, `seg${i}`), script.category === "ai-agent-tips" ? VOICE_TIPS : VOICE);
     voiced.push({ ...s, ...t });
     log(`[${id}] seg${i}: ${t.durationSec.toFixed(2)}s "${s.text.slice(0, 40)}"`);
   }

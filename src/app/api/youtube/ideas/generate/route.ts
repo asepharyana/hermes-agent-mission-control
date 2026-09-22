@@ -33,7 +33,11 @@ function braveSearch(query: string, braveKey: string, count = 5): { title: strin
   }
 }
 
-export async function POST() {
+export async function POST(req?: Request) {
+  const body = req ? await req.json().catch(() => ({})) : {};
+  const category: string = body.category || "brands";
+  const isTips = category === "ai-agent-tips";
+
   const apiKey = process.env.OPENAI_API_KEY || "";
   const braveKey = process.env.BRAVE_API_KEY || "";
   if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 500 });
@@ -65,10 +69,19 @@ export async function POST() {
   try { coveredTopics = fs.readFileSync(SCRIPTS_FILE, "utf-8").match(/### .+/g)?.join(", ") || ""; } catch { /* ok - file may not exist on Vercel */ }
 
   // -- STEP 1: Ask GPT to generate search queries --
-  const queryGenResult = callOpenAI(apiKey, {
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: `You generate search queries to find fascinating REAL stories about brands, businesses, and cultural moments for a viral short-form video creator.
+  const querySystem = isTips
+    ? `You generate search queries to find practical, actionable AI AGENT tips and best practices for a viral short-form video creator.
+
+The creator makes videos for builders/developers who ship AI agents (coding agents, MCP servers, tool-using LLMs, agent loops).
+Topics to cover: agent architecture, tool design, context window management, evals/testing, prompt engineering for agents, MCP, sub-agents, cost control, reliability/failure modes, memory, permissions/safety, orchestration patterns.
+
+Generate 10 diverse search queries for REAL, concrete tips (engineering blogs, docs, HN discussions, practitioner posts). Prefer "best practices", "lessons learned", "common mistakes", "how to", "patterns".
+
+DO NOT search for ideas already generated: ${existingTitles}
+${rejectionContext}
+
+Output JSON: {"queries":["search query 1","search query 2",...]}`
+    : `You generate search queries to find fascinating REAL stories about brands, businesses, and cultural moments for a viral short-form video creator.
 
 The creator covers a WIDE mix: mainstream brands (Red Bull, Nike, Barbie, Tesla, Apple, McDonald's, etc.), tech, pop culture, and business strategy. Most videos are about mainstream brands with a marketing/founder lesson.
 
@@ -81,8 +94,15 @@ DO NOT search for stories already covered: ${coveredTopics}
 DO NOT search for ideas already generated: ${existingTitles}
 ${rejectionContext}
 
-Output JSON: {"queries":["search query 1","search query 2",...]}` },
-      { role: "user", content: "10 diverse search queries for fascinating real stories. Mix mainstream brands, crypto, pop culture." }
+Output JSON: {"queries":["search query 1","search query 2",...]}`;
+
+  const queryGenResult = callOpenAI(apiKey, {
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: querySystem },
+      { role: "user", content: isTips
+        ? "10 diverse search queries for real, actionable AI agent tips and lessons."
+        : "10 diverse search queries for fascinating real stories. Mix mainstream brands, crypto, pop culture." }
     ],
     temperature: 0.95,
     response_format: { type: "json_object" }
@@ -104,10 +124,23 @@ Output JSON: {"queries":["search query 1","search query 2",...]}` },
   ).join("\n\n");
 
   // -- STEP 3: Feed real articles to GPT to create ideas --
-  const ideaGenResult = callOpenAI(apiKey, {
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: `You create viral short-form video ideas for the user based on REAL articles and stories found via web search.
+  const ideaSystem = isTips
+    ? `You create viral short-form video IDEAS about practical AI AGENT tips for builders, based on REAL articles found via web search.
+
+CRITICAL RULES:
+- Each idea MUST be one concrete, actionable tip/lesson from the search results below
+- Each idea MUST include a sourceUrl from the search results
+- Each idea MUST include a sourceSummary (1-2 sentence summary of the real tip/lesson)
+- Hook must stop the scroll in 3 seconds — lead with a common MISTAKE or counter-intuitive truth
+- Examples of strong hooks: "Your AI agent fails because of one missing tool", "Stop giving your agent 40 tools", "Nobody tells you this about MCP servers"
+- The angle must name a SPECIFIC technique/tool/pattern (MCP, tool schemas, evals, context pruning, sub-agents...) — never vague "use AI better"
+- Mix funnel stages: 5 TOF (wide builder appeal), 3 MOF (specific workflows), 2 BOF (advanced architecture)
+- DO NOT repeat these existing ideas: ${existingTitles}
+- Each hook should have normal punctuation (commas, periods)
+${rejectionContext}
+
+Output JSON: {"ideas":[{"title":"short title","hook":"2-3 line spoken word scroll-stopper","angle":"specific technique/pattern","hookType":"observation|experience|expert|controversial","funnelStage":"TOF|MOF|BOF","sourceUrl":"url from search results","sourceSummary":"1-2 sentence summary of the real tip"}]}`
+    : `You create viral short-form video ideas for the user based on REAL articles and stories found via web search.
 
 CRITICAL RULES:
 - Each idea MUST be based on a REAL story from the search results below
@@ -124,8 +157,15 @@ CRITICAL RULES:
 - Always name the SPECIFIC brand/person — never be vague
 ${rejectionContext}
 
-Output JSON: {"ideas":[{"title":"short title","hook":"2-3 line spoken word scroll-stopper","angle":"founder/crypto lesson","hookType":"observation|experience|expert|controversial","funnelStage":"TOF|MOF|BOF","sourceUrl":"url from search results","sourceSummary":"1-2 sentence summary of the real story"}]}` },
-      { role: "user", content: `Based on these REAL articles found via web search, create 10 video ideas. Each idea MUST reference a real story and include the source URL.\n\nSEARCH RESULTS:\n${searchContext}\n\nMake the hooks FIRE.` }
+Output JSON: {"ideas":[{"title":"short title","hook":"2-3 line spoken word scroll-stopper","angle":"founder/crypto lesson","hookType":"observation|experience|expert|controversial","funnelStage":"TOF|MOF|BOF","sourceUrl":"url from search results","sourceSummary":"1-2 sentence summary of the real story"}]}`;
+
+  const ideaGenResult = callOpenAI(apiKey, {
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: ideaSystem },
+      { role: "user", content: isTips
+        ? `Based on these REAL articles found via web search, create 10 AI AGENT TIP video ideas. Each idea MUST be one concrete tip and include the source URL.\n\nSEARCH RESULTS:\n${searchContext}\n\nMake the hooks FIRE.`
+        : `Based on these REAL articles found via web search, create 10 video ideas. Each idea MUST reference a real story and include the source URL.\n\nSEARCH RESULTS:\n${searchContext}\n\nMake the hooks FIRE.` }
     ],
     temperature: 0.85,
     response_format: { type: "json_object" }
@@ -149,6 +189,7 @@ Output JSON: {"ideas":[{"title":"short title","hook":"2-3 line spoken word scrol
           angle: idea.angle || null,
           hookType: idea.hookType || null,
           funnelStage: idea.funnelStage || null,
+          category,
           status: "pending",
         },
       });

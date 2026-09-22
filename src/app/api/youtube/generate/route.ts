@@ -45,8 +45,9 @@ function fetchArticle(url: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { topic, sourceUrl, sourceSummary } = await req.json();
+  const { topic, sourceUrl, sourceSummary, category } = await req.json();
   if (!topic) return NextResponse.json({ error: "topic required" }, { status: 400 });
+  const isTips = category === "ai-agent-tips";
 
   const apiKey = process.env.OPENAI_API_KEY || "";
   const braveKey = process.env.BRAVE_API_KEY || "";
@@ -171,20 +172,25 @@ ${sourceContext || "No sources available — be EXTRA cautious with claims, hedg
 - Include a "factClaims" array listing every specific factual claim in the script (dates, numbers, events, quotes)
 - Each claim MUST be traceable to the source material above
 
-## THE USER'S ANGLE
+## THE USER'S ANGLE${isTips ? `
+- Builds and ships AI agents (coding agents, MCP, agent loops) — the tips are for OTHER builders
+- Voice: direct, first-principles, tells you the mistake you are probably making
+- Every tip must be concrete and actionable — no fluff
+- The viewer is technical: they write code and wire tools together
+- Ground each tip in a real failure/lesson: "I ran this in production and learned X"` : `
 - Runs a marketing-focused business
 - Content: founder branding, marketing, distribution > product, culture > features
-- Voice: conversational, no fancy words, lowercase energy, real numbers, honest/vulnerable
-${pastScriptsRef}
-${feedbackContext}
+- Voice: conversational, no fancy words, lowercase energy, real numbers, honest/vulnerable`}
+  ${pastScriptsRef}
+  ${feedbackContext}
 
 OUTPUT FORMAT — valid JSON only:
 {
   "title": "Brand/Person — Core Lesson (short)",
-  "hook": "Opening 2-4 lines. Scroll-stopping.",
-  "storySetup": "The backstory context. 3-5 sentences.",
-  "conflict": "The tension pivot or controversial statement. 3-5 sentences.",
-  "insight": "The aha moment payoff lesson for founders. 3-5 sentences.",
+  "hook": "Opening 2-4 lines. Scroll-stopping.${isTips ? " Lead with the COMMON MISTAKE or counter-intuitive truth about AI agents." : ""}",
+  "storySetup": "The backstory context. 3-5 sentences.${isTips ? " The situation: why builders get this wrong." : ""}",
+  "conflict": "The tension pivot or controversial statement. 3-5 sentences.${isTips ? " The failure mode / what everyone does that backfires." : ""}",
+  "insight": "The aha moment payoff lesson for founders. 3-5 sentences.${isTips ? " THE concrete fix/pattern — specific, actionable, names the tool/technique." : ""}",
   "cta": "One clear action. One line.",
   "caption": "One punchy line without spoilers.",
   "onScreenText": "What appears on screen during the hook",

@@ -133,6 +133,7 @@ model YoutubeIdea {
   funnelStage       String?
   status            String   @default("pending")
   rejectedReason    String?
+  category          String?  @default("brands")
   sourceUrl         String?
   sourceSummary     String?
   competitionScore  String?  // "gap" | "moderate" | "crowded"
@@ -172,6 +173,8 @@ model YoutubeScript {
   // Source content (tweet/thread/news) rendered as visual cards
   sourceUrl       String?
   sourceData      Json?
+  // Content category (brands | ai-agent-tips | ...)
+  category        String?   @default("brands")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

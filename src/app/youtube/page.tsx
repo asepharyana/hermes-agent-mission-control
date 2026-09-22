@@ -22,15 +22,17 @@ const LongformTab = dynamic(() => import("@/app/longform/page"), { ssr: false, l
 const OutlierFeed = dynamic(() => import("@/components/OutlierFeed"), { ssr: false, loading: () => <TabSkeleton /> });
 
 interface Idea {
+  id: string;
   title: string;
-  hook: string;
-  angle: string;
+  hook?: string;
+  angle?: string;
   hookType?: string;
   funnelStage?: string;
-  rejectedReason?: string;
-  status?: "pending" | "rejected" | "approved";
+  category?: string;
   sourceUrl?: string;
   sourceSummary?: string;
+  rejectedReason?: string;
+  status?: "pending" | "rejected" | "approved";
 }
 
 interface Script {
@@ -82,6 +84,7 @@ export default function YouTubePage() {
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [ideaTab, setIdeaTab] = useState<"pending" | "rejected">("pending");
   const [scriptTab, setScriptTab] = useState<"draft" | "approved" | "rejected">("draft");
+  const [ideaCategory, setIdeaCategory] = useState<"brands" | "ai-agent-tips">("brands");
   const [rejectModal, setRejectModal] = useState<{ type: "idea" | "script"; id: string; title: string } | null>(null);
   const rejectRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -139,7 +142,7 @@ export default function YouTubePage() {
       const res = await fetch("/api/youtube/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: `${idea.title}. Hook angle: ${idea.hook}. Lesson: ${idea.angle}`, sourceUrl: idea.sourceUrl, sourceSummary: idea.sourceSummary }),
+        body: JSON.stringify({ topic: `${idea.title}. Hook angle: ${idea.hook}. Lesson: ${idea.angle}`, sourceUrl: idea.sourceUrl, sourceSummary: idea.sourceSummary, category: idea.category || ideaCategory }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -629,11 +632,24 @@ export default function YouTubePage() {
                         }}
                       >{batchGenerating ? `✨ Generating ${selectedIdeas.size}...` : `Generate ${selectedIdeas.size} Script${selectedIdeas.size > 1 ? "s" : ""}`}</Button>
                     )}
+                    <select
+                      value={ideaCategory}
+                      onChange={(e) => setIdeaCategory(e.target.value as "brands" | "ai-agent-tips")}
+                      className="text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-[var(--muted)]"
+                      title="Content category for idea generation"
+                    >
+                      <option value="brands">Brands & Founders</option>
+                      <option value="ai-agent-tips">AI Agent Tips</option>
+                    </select>
                     <Button size="sm" variant="ghost" disabled={generatingIdeas}
                       onClick={async () => {
                         setGeneratingIdeas(true);
                         try {
-                          const res = await fetch("/api/youtube/ideas/generate", { method: "POST" });
+                          const res = await fetch("/api/youtube/ideas/generate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ category: ideaCategory }),
+                          });
                           if (res.ok) fetchIdeas();
                         } catch { /* empty */ }
                         setGeneratingIdeas(false);
