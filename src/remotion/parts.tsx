@@ -27,37 +27,47 @@ const SCENES = [
   { bg: "#101014", motif: "barcode" },    // vertical bars
   { bg: "#15151a", motif: "rings" },      // target rings
   { bg: "#0f0f12", motif: "diag" },       // diagonal ticks
+  { bg: "#0c0c10", motif: "grid" },       // blueprint grid
+  { bg: "#141418", motif: "dots" },       // dot matrix
+  { bg: "#0e0e12", motif: "waves" },      // sine waves
+  { bg: "#131317", motif: "stars" },      // rotating asterisks
+  { bg: "#111115", motif: "zigzag" },     // zigzag bands
+  { bg: "#0b0b0e", motif: "brackets" },   // blueprint corner frame
 ];
 
-/** Flat mono background: solid color + faint white SVG motif per scene. */
+/** Flat mono background: solid color + faint white SVG motif per scene.
+ *  Each motif animates with its own cheap (transform/opacity) motion. */
 export const SvgBackground: React.FC<{ variant?: number }> = ({ variant = 0 }) => {
   const { width, height } = useVideoConfig();
   const frame = useCurrentFrame();
   const t = frame / 60;
   const s = SCENES[variant % SCENES.length];
-  const stroke = "rgba(255,255,255,0.14)";
+  const stroke = "rgba(255,255,255,0.15)";
   const strokeSoft = "rgba(255,255,255,0.07)";
+  const W = width;
+  const H = height;
 
   return (
     <AbsoluteFill style={{ background: s.bg }}>
-      {/* faint motion — shape drifts very slowly (transform only, cheap) */}
       <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
         style={{ position: "absolute", inset: 0 }}
       >
         {s.motif === "circles" && (
           <>
-            <circle cx={width * 0.82} cy={height * 0.2} r={240} fill="none" stroke={stroke} strokeWidth={1.5} />
-            <circle cx={width * 0.82} cy={height * 0.2} r={300} fill="none" stroke={strokeSoft} strokeWidth={1} />
-            <circle cx={width * 0.14} cy={height * 0.78} r={90} fill="none" stroke={strokeSoft} strokeWidth={1} />
+            <g transform={`scale(${1 + Math.sin(t * 1.6) * 0.05}) translate(${W * (0.82 - 0.82 * Math.sin(t * 1.6) * 0.05)}, ${H * (0.2 - 0.2 * Math.sin(t * 1.6) * 0.05)})`}>
+              <circle cx={0} cy={0} r={240} fill="none" stroke={stroke} strokeWidth={1.5} />
+              <circle cx={0} cy={0} r={300} fill="none" stroke={strokeSoft} strokeWidth={1} />
+            </g>
+            <circle cx={W * 0.14} cy={H * 0.78} r={90} fill="none" stroke={strokeSoft} strokeWidth={1} />
           </>
         )}
         {s.motif === "plus" && (
           <>
             {[0.12, 0.22, 0.5, 0.72, 0.88].map((x, i) => (
-              <g key={i} transform={`translate(${width * x}, ${height * (0.2 + i * 0.16)})`} stroke={stroke} strokeWidth={2}>
+              <g key={i} transform={`translate(${W * x}, ${H * (0.2 + i * 0.16) + Math.sin(t + i * 1.2) * 14})`} stroke={stroke} strokeWidth={2} opacity={0.55 + 0.45 * Math.sin(t + i * 1.2)}>
                 <line x1={-13} y1={0} x2={13} y2={0} />
                 <line x1={0} y1={-13} x2={0} y2={13} />
               </g>
@@ -67,28 +77,100 @@ export const SvgBackground: React.FC<{ variant?: number }> = ({ variant = 0 }) =
         {s.motif === "barcode" && (
           <>
             {[30, 70, 110, 150, 190, 230, 270, 310].map((x, i) => (
-              <rect key={i} x={x} y={height * 0.12} width={i % 3 === 0 ? 6 : 3} height={height * 0.3} fill={stroke} />
+              <rect key={i} x={x} y={H * 0.12} width={i % 3 === 0 ? 6 : 3} height={H * 0.3} fill={stroke} opacity={0.5 + 0.5 * Math.sin(t * 2 + i * 0.9)} />
             ))}
-            {[width - 330, width - 290, width - 250, width - 210, width - 170, width - 130, width - 90].map((x, i) => (
-              <rect key={i} x={x} y={height * 0.62} width={i % 2 === 0 ? 5 : 2} height={height * 0.26} fill={stroke} />
+            {[W - 330, W - 290, W - 250, W - 210, W - 170, W - 130, W - 90].map((x, i) => (
+              <rect key={i} x={x} y={H * 0.62} width={i % 2 === 0 ? 5 : 2} height={H * 0.26} fill={stroke} opacity={0.4 + 0.6 * Math.sin(t * 2.2 + i * 1.1)} />
             ))}
           </>
         )}
         {s.motif === "rings" && (
-          <>
-            <circle cx={width * 0.5} cy={height * 0.34} r={150} fill="none" stroke={stroke} strokeWidth={2} />
-            <circle cx={width * 0.5} cy={height * 0.34} r={120} fill="none" stroke={strokeSoft} strokeWidth={1.5} />
-            <circle cx={width * 0.5} cy={height * 0.34} r={90} fill="none" stroke={stroke} strokeWidth={1} />
-          </>
+          <g transform={`scale(${1 + Math.sin(t * 0.9) * 0.04}) translate(${W * 0.5 * (1 - (1 + Math.sin(t * 0.9) * 0.04))}, ${H * 0.34 * (1 - (1 + Math.sin(t * 0.9) * 0.04))})`}>
+            <circle cx={W * 0.5} cy={H * 0.34} r={150} fill="none" stroke={stroke} strokeWidth={2} />
+            <circle cx={W * 0.5} cy={H * 0.34} r={120} fill="none" stroke={strokeSoft} strokeWidth={1.5} />
+            <circle cx={W * 0.5} cy={H * 0.34} r={90} fill="none" stroke={stroke} strokeWidth={1} />
+          </g>
         )}
         {s.motif === "diag" && (
           <>
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <line key={i} x1={width * 0.1 + i * 46} y1={height * 0.05} x2={width * 0.25 + i * 46} y2={height * 0.45} stroke={strokeSoft} strokeWidth={2} />
+              <line key={i} x1={W * 0.1 + i * 46 - ((t * 14) % 46)} y1={H * 0.05} x2={W * 0.25 + i * 46 - ((t * 14) % 46)} y2={H * 0.45} stroke={strokeSoft} strokeWidth={2} />
             ))}
             {[0, 1, 2, 3].map((i) => (
-              <line key={i} x1={width * 0.68 + i * 40} y1={height * 0.55} x2={width * 0.8 + i * 40} y2={height * 0.95} stroke={stroke} strokeWidth={2} />
+              <line key={i} x1={W * 0.68 + i * 40 + ((t * 10) % 40)} y1={H * 0.55} x2={W * 0.8 + i * 40 + ((t * 10) % 40)} y2={H * 0.95} stroke={stroke} strokeWidth={2} />
             ))}
+          </>
+        )}
+        {s.motif === "grid" && (
+          <>
+            {[0.15, 0.3, 0.45, 0.6, 0.75, 0.9].map((y, i) => (
+              <line key={i} x1={W * 0.06} y1={H * y} x2={W * 0.94} y2={H * y} stroke={strokeSoft} strokeWidth={1} />
+            ))}
+            {[0.1, 0.25, 0.4, 0.55, 0.7, 0.85].map((x, i) => (
+              <line key={i} x1={W * x} y1={H * 0.06} x2={W * x} y2={H * 0.94} stroke={strokeSoft} strokeWidth={1} />
+            ))}
+            <line x1={W * 0.06} y1={H * (0.15 + 0.15 * ((t * 0.4) % 1))} x2={W * 0.94} y2={H * (0.15 + 0.15 * ((t * 0.4) % 1))} stroke={stroke} strokeWidth={2} />
+          </>
+        )}
+        {s.motif === "dots" && (
+          <>
+            {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((x, i) => (
+              <g key={i}>
+                {[0.15, 0.3, 0.45, 0.6, 0.75, 0.9].map((y, j) => (
+                  <circle key={j} cx={W * x} cy={H * y} r={2.6} fill={stroke} opacity={0.35 + 0.65 * Math.sin(t * 1.4 + i * 1.3 + j * 0.8)} />
+                ))}
+              </g>
+            ))}
+          </>
+        )}
+        {s.motif === "waves" && (
+          <>
+            <polyline
+              points={`${W * 0.02},${H * 0.3} ${W * 0.1},${H * (0.28 + Math.sin(t) * 0.03)} ${W * 0.25},${H * (0.32 + Math.sin(t + 0.8) * 0.03)} ${W * 0.4},${H * (0.28 + Math.sin(t + 1.6) * 0.03)} ${W * 0.55},${H * (0.32 + Math.sin(t + 2.4) * 0.03)} ${W * 0.7},${H * (0.28 + Math.sin(t + 3.2) * 0.03)} ${W * 0.85},${H * (0.32 + Math.sin(t + 4) * 0.03)} ${W * 0.98},${H * 0.3}`}
+              fill="none" stroke={stroke} strokeWidth={2}
+            />
+            <polyline
+              points={`${W * 0.02},${H * 0.72} ${W * 0.15},${H * (0.74 + Math.sin(t * 1.3) * 0.03)} ${W * 0.3},${H * (0.7 + Math.sin(t * 1.3 + 1) * 0.03)} ${W * 0.5},${H * (0.74 + Math.sin(t * 1.3 + 2) * 0.03)} ${W * 0.65},${H * (0.7 + Math.sin(t * 1.3 + 3) * 0.03)} ${W * 0.8},${H * (0.74 + Math.sin(t * 1.3 + 4) * 0.03)} ${W * 0.98},${H * 0.72}`}
+              fill="none" stroke={strokeSoft} strokeWidth={1.5}
+            />
+          </>
+        )}
+        {s.motif === "stars" && (
+          <>
+            {[
+              { x: 0.16, y: 0.2, s: 30, ph: 0 },
+              { x: 0.8, y: 0.28, s: 22, ph: 1.4 },
+              { x: 0.3, y: 0.72, s: 26, ph: 2.6 },
+              { x: 0.72, y: 0.8, s: 18, ph: 3.8 },
+              { x: 0.88, y: 0.62, s: 34, ph: 0.7 },
+            ].map((st, i) => (
+              <g key={i} transform={`translate(${W * st.x}, ${H * st.y}) rotate(${t * 16 + st.ph * 40})`} stroke={stroke} strokeWidth={2}>
+                {[0, 1, 2, 3, 4, 5].map((k) => (
+                  <line key={k} x1={0} y1={-st.s * 0.5} x2={0} y2={st.s * 0.5} transform={`rotate(${k * 30})`} />
+                ))}
+              </g>
+            ))}
+          </>
+        )}
+        {s.motif === "zigzag" && (
+          <>
+            {[0.14, 0.3, 0.46].map((y, i) => (
+              <polyline
+                key={i}
+                points={`${-40 + ((t * 26) % 80)},${H * y} ${20 + ((t * 26) % 80)},${H * (y - 0.05)} ${80 + ((t * 26) % 80)},${H * y} ${140 + ((t * 26) % 80)},${H * (y - 0.05)} ${200 + ((t * 26) % 80)},${H * y} ${260 + ((t * 26) % 80)},${H * (y - 0.05)} ${320 + ((t * 26) % 80)},${H * y} ${380 + ((t * 26) % 80)},${H * (y - 0.05)} ${440 + ((t * 26) % 80)},${H * y} ${500 + ((t * 26) % 80)},${H * (y - 0.05)} ${560 + ((t * 26) % 80)},${H * y}`}
+                fill="none" stroke={i === 1 ? stroke : strokeSoft} strokeWidth={2}
+              />
+            ))}
+          </>
+        )}
+        {s.motif === "brackets" && (
+          <>
+            <g transform={`translate(${Math.sin(t * 0.6) * 6}, ${Math.cos(t * 0.6) * 6})`} stroke={stroke} strokeWidth={3} fill="none">
+              <path d={`M ${W * 0.04} ${H * 0.9} L ${W * 0.04} ${H * 0.08} L ${W * 0.1} ${H * 0.08}`} />
+              <path d={`M ${W * 0.96} ${H * 0.1} L ${W * 0.96} ${H * 0.92} L ${W * 0.9} ${H * 0.92}`} />
+            </g>
+            <circle cx={W * 0.5} cy={H * 0.5} r={Math.abs(Math.sin(t * 0.5)) * 90} fill="none" stroke={strokeSoft} strokeWidth={1} />
+            <circle cx={W * 0.5} cy={H * 0.5} r={Math.max(0, Math.sin(t * 0.5 + Math.PI)) * 90} fill="none" stroke={strokeSoft} strokeWidth={1} />
           </>
         )}
       </svg>

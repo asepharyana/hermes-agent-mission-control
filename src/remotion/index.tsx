@@ -14,7 +14,7 @@ const Shorts: React.FC = () => {
       fps={30}
       width={1080}
       height={1920}
-      defaultProps={{ segments: DEFAULT_SEGMENTS }}
+      defaultProps={{ segments: DEFAULT_SEGMENTS, seed: 0 }}
       calculateMetadata={({ props }) => {
         const segs = props.segments?.length ? props.segments : DEFAULT_SEGMENTS;
         return { durationInFrames: useTotalDuration(segs) };

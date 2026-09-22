@@ -278,10 +278,15 @@ async function renderScript(script) {
   // 4. Render silent video via Remotion CLI (props = segments JSON)
   const silentMp4 = path.join(work, "silent.mp4");
   log(`[${id}] Remotion render ${timeline.length} segs → silent.mp4`);
+  // Deterministic per-script seed → background motifs + scene variety shuffle
+  // per video (same script re-render keeps same look; different scripts differ).
+  let seed = 0;
+  for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  seed %= 110;
   sh("npx", [
     "--yes", "remotion", "render", REMOTION_ENTRY, "Shorts", silentMp4,
     "--codec=h264", "--crf=20", "--browser-executable=" + CHROME,
-    "--props=" + JSON.stringify({ segments: timeline }),
+    "--props=" + JSON.stringify({ segments: timeline, seed }),
     "--concurrency=6",
     "--log=info",
   ], { timeout: 600_000, env: { ...process.env } });

@@ -74,9 +74,10 @@ function extractStat(text: string): { value: string; label: string } | null {
 }
 
 /** Pick a scene for this segment (variety — pattern interrupt every cut). */
-function pickScene(seg: Segment, index: number): Segment["scene"] | "caption" {
+function pickScene(seg: Segment, index: number, seed = 0): Segment["scene"] | "caption" {
   if (seg.scene) return seg.scene;
   const label = (seg.label || "").toUpperCase();
+  const i = (index + seed) % 5;
   // AI-tips scenes handled by worker override; here we only route the shared
   // creative variety (bang for twist, bullets for insight) — HOOK stays title.
   if (label === "THE MISTAKE" || label === "WHY IT FAILS") return "compare";
@@ -89,7 +90,7 @@ function pickScene(seg: Segment, index: number): Segment["scene"] | "caption" {
   if (seg.stat) return "stat";
   const stat = extractStat(seg.text);
   if (stat) return "stat";
-  if (index % 3 === 2) return "title";
+  if (i % 3 === 2) return "title";
   return "caption";
 }
 
@@ -98,9 +99,10 @@ const Scene: React.FC<{
   seg: Segment;
   index: number;
   from: number;
-}> = ({ seg, index, from }) => {
+  seed?: number;
+}> = ({ seg, index, from, seed = 0 }) => {
   const { duration, label, text } = seg;
-  const scene = pickScene(seg, index);
+  const scene = pickScene(seg, index, seed);
   const stat = seg.stat || (scene === "stat" ? extractStat(text) : null);
   const sentences =
     seg.sentences && seg.sentences.length
@@ -112,7 +114,7 @@ const Scene: React.FC<{
   if (scene === "terminal") {
     return (
       <AbsoluteFill>
-        <SvgBackground variant={index} />
+        <SvgBackground variant={index + (seed || 0)} />
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
           <TerminalScene text={text} />
@@ -125,7 +127,7 @@ const Scene: React.FC<{
   if (scene === "compare" || scene === "fix") {
     return (
       <AbsoluteFill>
-        <SvgBackground variant={index} />
+        <SvgBackground variant={index + (seed || 0)} />
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
           <CompareScene text={text} side={scene === "fix" ? "good" : "bad"} />
@@ -138,7 +140,7 @@ const Scene: React.FC<{
   if (scene === "bullets") {
     return (
       <AbsoluteFill>
-        <SvgBackground variant={index} />
+        <SvgBackground variant={index + (seed || 0)} />
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
           <BulletScene text={text} />
@@ -151,7 +153,7 @@ const Scene: React.FC<{
   if (scene === "bang") {
     return (
       <AbsoluteFill>
-        <SvgBackground variant={index} />
+        <SvgBackground variant={index + (seed || 0)} />
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
           <BangScene text={text} />
@@ -164,7 +166,7 @@ const Scene: React.FC<{
 
   return (
     <AbsoluteFill>
-      <SvgBackground variant={index} />
+      <SvgBackground variant={index + (seed || 0)} />
       <SlideMotion>
         {label ? <BrandTag label={label} /> : null}
 
@@ -243,7 +245,7 @@ function titleFor(seg: Segment): string {
 }
 
 /** Composition: each scene time-gated by Sequence (frame resets per scene). */
-export const ShortsVideo: React.FC<{ segments: Segment[] }> = ({ segments }) => {
+export const ShortsVideo: React.FC<{ segments: Segment[]; seed?: number }> = ({ segments, seed = 0 }) => {
   let acc = 0;
   return (
     <>
@@ -252,7 +254,7 @@ export const ShortsVideo: React.FC<{ segments: Segment[] }> = ({ segments }) => 
         acc += s.duration;
         return (
           <Sequence key={i} from={from} durationInFrames={s.duration}>
-            <Scene seg={s} index={i} from={from} />
+            <Scene seg={s} index={i} from={from} seed={seed} />
           </Sequence>
         );
       })}
