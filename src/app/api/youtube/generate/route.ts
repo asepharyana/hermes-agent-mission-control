@@ -290,6 +290,7 @@ Return JSON: { "results": [{ "claim": "...", "verdict": "correct|incorrect|uncer
       sourceUrls: factCheck.sourceUrls,
     },
     status: "draft",
+    category: category || "brands",
     createdAt: new Date().toISOString().split("T")[0],
   });
 }

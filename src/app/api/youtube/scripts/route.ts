@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       fullScript: body.fullScript || null,
       status: body.status || "draft",
       rejectedReason: body.rejectedReason || null,
+      category: body.category || "brands",
       // SEO Package
       seoTitle: body.seoTitle || null,
       seoDescription: body.seoDescription || null,
