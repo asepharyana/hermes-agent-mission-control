@@ -16,6 +16,95 @@ import {
   MiniKaraoke,
 } from "./parts";
 import { TweetCard, ThreadCard, NewsCard } from "./cards";
+import {
+  ChartBars,
+  ChartLine,
+  RingProgress,
+  Gauge,
+  TickerTape,
+  Countdown,
+  NodeFlow,
+  PulseBars,
+  Checklist,
+  HudFrame,
+  StatBlock,
+} from "./assets";
+
+/** Asset pool — a visual building block sits above the caption card on
+ *  regular caption scenes, chosen deterministically per (index, seed) so
+ *  every video looks different. Reused across scenes via asset picker. */
+const ASSET_POOL = [
+  "chartbars",
+  "chartline",
+  "ring",
+  "gauge",
+  "ticker",
+  "countdown",
+  "nodeflow",
+  "pulse",
+  "checklist",
+  "hud",
+  "stat",
+] as const;
+type AssetKey = (typeof ASSET_POOL)[number];
+
+const AssetDecor: React.FC<{ index: number; seed: number; text: string; label: string }> = ({ index, seed = 0, text, label }) => {
+  // skip asset on tiny/labeled scenes? no — variety is the point; but CTA/HOOK
+  // already have big visuals so only attach to caption-ish scenes by intent.
+  const L = (label || "").toUpperCase();
+  if (["CTA", "HOOK", "ON SCREEN"].includes(L)) return null;
+  // Label-aware asset choice: THE STORY → growth charts, THE CONFLICT → bang
+  // energy (pulse/ring), THE INSIGHT → checklist/nodeflow. Falls back to the
+  // seeded pool for anything else, so videos vary regardless.
+  let key: AssetKey;
+  if (L === "THE STORY") {
+    key = (["chartbars", "chartline", "ticker", "stat"] as AssetKey[])[(index + seed) % 4];
+  } else if (L === "THE CONFLICT") {
+    key = (["pulse", "ring", "gauge", "pulse"] as AssetKey[])[(index + seed) % 4];
+  } else if (L === "THE INSIGHT") {
+    key = (["checklist", "nodeflow", "stat", "checklist"] as AssetKey[])[(index + seed) % 4];
+  } else if (L === "THE MISTAKE" || L === "WHY IT FAILS") {
+    key = "pulse";
+  } else if (L === "THE FIX") {
+    key = "checklist";
+  } else {
+    key = ASSET_POOL[(index + seed) % ASSET_POOL.length];
+  }
+  const words = text.split(" ").length;
+  // only show asset that "fits" — for now deterministic pick is fine
+  const delay = (index + seed) % 6;
+  const render = () => {
+    switch (key) {
+      case "chartbars": return <ChartBars bars={5} delay={delay} />;
+      case "chartline": return <ChartLine delay={delay} />;
+      case "ring": return <RingProgress pct={0.55 + ((seed + index) % 4) * 0.12} delay={delay} />;
+      case "gauge": return <Gauge value={0.5 + ((seed + index) % 5) * 0.08} label={words > 5 ? "SIGNAL" : "GAUGE"} delay={delay} />;
+      case "ticker": return <TickerTape text={text.slice(0, 60)} />;
+      case "countdown": return <Countdown end={3} from={5 + (seed % 4)} delay={delay} />;
+      case "nodeflow": return <NodeFlow delay={delay} />;
+      case "pulse": return <PulseBars bars={12} delay={delay} />;
+      case "checklist": return <Checklist items={["PLAN", "BUILD", "SHIP"]} delay={delay} />;
+      case "hud": return <HudFrame label={words > 4 ? "SYSTEM" : "DATA"} />;
+      case "stat": return <StatBlock value={`${(seed % 8) + 3}${index % 2 ? "M" : "%"}`} sub="REACH" />;
+      default: return null;
+    }
+  };
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "8%", right: "8%", top: "18%",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexDirection: "column",
+        height: "36%",
+        width: "84%",
+        pointerEvents: "none",
+      }}
+    >
+      {render()}
+    </div>
+  );
+};
 
 /** Sentence timing (karaoke), relative to segment start. */
 export type Sentence = { w: string; start: number; end: number };
@@ -163,6 +252,25 @@ const Scene: React.FC<{
       </AbsoluteFill>
     );
   }
+  if (scene === "caption" || scene === "title" || scene === "cta") {
+    // regular scenes get an animated asset above the card (variety!)
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index + (seed || 0)} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          {scene === "caption" ? (
+            <AssetDecor index={index} seed={seed} text={text} label={label || ""} />
+          ) : null}
+          <KineticTitle text={titleFor(seg)} size={54} />
+          <GlassCard>
+            <CaptionKaraoke sentences={sentences} size={44} />
+          </GlassCard>
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill>
@@ -191,25 +299,8 @@ const Scene: React.FC<{
           />
         ) : scene === "stat" && stat ? (
           <StatCounter value={stat.value} label={stat.label} />
-        ) : scene === "title" || scene === "cta" ? (
-          <>
-            <KineticTitle
-              text={text}
-              size={scene === "cta" ? 76 : 88}
-              position={scene === "cta" ? "center" : "top"}
-              accentIndex={scene === "cta" ? -1 : text.split(" ").length - 1}
-            />
-            <GlassCard style={{ padding: "22px 28px" }}>
-              <CaptionKaraoke sentences={sentences} size={38} />
-            </GlassCard>
-          </>
         ) : (
-          <>
-            <KineticTitle text={titleFor(seg)} size={54} />
-            <GlassCard>
-              <CaptionKaraoke sentences={sentences} size={44} />
-            </GlassCard>
-          </>
+          <KineticTitle text={titleFor(seg)} size={54} />
         )}
 
         <ProgressBar total={duration} />
