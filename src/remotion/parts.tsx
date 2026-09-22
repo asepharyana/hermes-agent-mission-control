@@ -356,3 +356,328 @@ export const SlideMotion: React.FC<{ children: React.ReactNode }> = ({ children 
     </AbsoluteFill>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CREATIVE SCENES — visual variety beyond the caption card.
+   All monochrome flat, transform/opacity only (no blur/SVG filters).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Monospace terminal typeface. */
+const FONT_MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+
+/** Line icons drawn with strokes (animate in via opacity/offset). */
+export const LineIcon: React.FC<{
+  kind: "check" | "cross" | "node" | "bolt";
+  size?: number;
+  delay?: number;
+}> = ({ kind, size = 64, delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const pop = spring({ frame: frame - delay, fps, config: { damping: 16, stiffness: 120 } });
+  const s = size;
+  const stroke = "currentColor";
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 64 64"
+      style={{ color: "#ffffff", opacity: pop, transform: `scale(${0.7 + pop * 0.3})` }}
+    >
+      {kind === "check" && (
+        <>
+          <circle cx={32} cy={32} r={27} fill="none" stroke={stroke} strokeWidth={4} />
+          <path d="M20 33 L28 41 L45 23" fill="none" stroke={stroke} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+      {kind === "cross" && (
+        <>
+          <circle cx={32} cy={32} r={27} fill="none" stroke={stroke} strokeWidth={4} />
+          <path d="M23 23 L41 41 M41 23 L23 41" fill="none" stroke={stroke} strokeWidth={5} strokeLinecap="round" />
+        </>
+      )}
+      {kind === "node" && (
+        <>
+          <circle cx={16} cy={20} r={7} fill="none" stroke={stroke} strokeWidth={3} />
+          <circle cx={36} cy={44} r={7} fill="none" stroke={stroke} strokeWidth={3} />
+          <circle cx={50} cy={16} r={7} fill="none" stroke={stroke} strokeWidth={3} />
+          <path d="M20 25 L32 38 M32 38 L44 22 M22 18 L44 16" fill="none" stroke={stroke} strokeWidth={3} />
+        </>
+      )}
+      {kind === "bolt" && (
+        <path d="M36 8 L16 36 L30 36 L26 56 L48 26 L33 26 Z" fill="none" stroke={stroke} strokeWidth={4} strokeLinejoin="round" />
+      )}
+    </svg>
+  );
+};
+
+/** Terminal scene — "$" prompt + typed commands, blinking cursor (AI-agent vibe). */
+export const TerminalScene: React.FC<{ text: string; size?: number }> = ({ text, size = 40 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  // Split into command line(s) + output lines (roughly 4-6 words each)
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    if ((cur + " " + w).trim().split(" ").length > 5) { lines.push(cur.trim()); cur = w; }
+    else cur = (cur + " " + w).trim();
+  }
+  if (cur) lines.push(cur.trim());
+  const cmd = lines[0] || "$ agent --fix";
+  const output = lines.slice(1);
+  // typing effect for command
+  const typeDur = Math.max(6, Math.floor(fps * 0.8)); // frames to type full command
+  const chars = Math.min(cmd.length, Math.floor((frame / typeDur) * cmd.length));
+  const typed = cmd.slice(0, chars);
+  const blink = frame % (fps * 1.1) < fps * 0.55;
+  const pop = spring({ frame, fps, config: { damping: 15, stiffness: 100 } });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "7%",
+        right: "7%",
+        top: "24%",
+        background: "#000000",
+        border: "2px solid #ffffff",
+        borderRadius: 18,
+        padding: "34px 30px",
+        fontFamily: FONT_MONO,
+        transform: `translateY(${(1 - pop) * 24}px)`,
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{ width: 14, height: 14, borderRadius: 99, border: "2px solid #fff", opacity: 1 - i * 0.25 }} />
+        ))}
+      </div>
+      <div style={{ fontSize: size, color: "#ffffff", lineHeight: 1.45, letterSpacing: "-0.01em" }}>
+        <span style={{ color: "rgba(255,255,255,0.55)" }}>$ </span>
+        {typed}
+        <span style={{ opacity: blink ? 1 : 0, background: "#fff", color: "#000", padding: "0 3px", marginLeft: 2 }}>▌</span>
+      </div>
+      {output.map((l, i) => {
+        const o = Math.max(0, Math.min(1, (frame - typeDur - i * 10) / 12));
+        return (
+          <div key={i} style={{ fontSize: size * 0.62, color: "rgba(255,255,255,0.78)", lineHeight: 1.5, opacity: o, marginTop: 12 }}>
+            {l}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** DON'T (✗) vs DO (✓) — split compare panel. */
+export const CompareScene: React.FC<{ text: string; side: "bad" | "good"; size?: number }> = ({ text, side, size = 38 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const pop = spring({ frame, fps, config: { damping: 15, stiffness: 100 } });
+  const words = text.split(" ");
+  const chunk = Math.max(3, Math.ceil(words.length / 2));
+  const halves = [words.slice(0, chunk).join(" "), words.slice(chunk).join(" ")];
+  const good = side === "good";
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "6%",
+        right: "6%",
+        top: "26%",
+        display: "flex",
+        alignItems: "stretch",
+        gap: 18,
+        transform: `translateY(${(1 - pop) * 30}px)`,
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          border: `2px solid ${good ? "rgba(255,255,255,0.35)" : "#ffffff"}`,
+          borderRadius: 16,
+          padding: "30px 22px",
+          background: good ? "transparent" : "#ffffff",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 18,
+          opacity: good ? 0.5 : 1,
+        }}
+      >
+        <LineIcon kind="cross" size={52} />
+        <div
+          style={{
+            fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: "0.12em",
+            color: good ? "#fff" : "#000",
+          }}
+        >
+          DON'T
+        </div>
+      </div>
+      <div style={{ alignSelf: "center", fontFamily: FONT_DISPLAY, fontSize: 44, color: "#fff" }}>→</div>
+      <div
+        style={{
+          flex: 1.4,
+          border: `2px solid ${good ? "#ffffff" : "rgba(255,255,255,0.35)"}`,
+          borderRadius: 16,
+          padding: "30px 22px",
+          background: good ? "#ffffff" : "transparent",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 18,
+          opacity: good ? 1 : 0.5,
+        }}
+      >
+        <LineIcon kind="check" size={52} />
+        <div
+          style={{
+            fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26, letterSpacing: "0.12em",
+            color: good ? "#000" : "#fff",
+          }}
+        >
+          DO THIS
+        </div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 0, right: 0, bottom: -16,
+          textAlign: "center",
+        }}
+      />
+    </div>
+  );
+};
+
+/** Numbered bullet list (for insights: "1. one idea 2. …") — animated per bullet. */
+export const BulletScene: React.FC<{ text: string; size?: number }> = ({ text, size = 40 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const words = text.split(" ");
+  const per = Math.max(3, Math.ceil(words.length / 3));
+  const bullets = [
+    words.slice(0, per).join(" "),
+    words.slice(per, per * 2).join(" "),
+    words.slice(per * 2).join(" "),
+  ].filter(Boolean);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "8%",
+        right: "8%",
+        top: "24%",
+        display: "flex",
+        flexDirection: "column",
+        gap: 26,
+      }}
+    >
+      {bullets.map((b, i) => {
+        const start = i * 10;
+        const o = Math.max(0, Math.min(1, (frame - start) / 12));
+        const y = (1 - o) * 30;
+        return (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 20, opacity: o, transform: `translateY(${y}px)` }}>
+            <div
+              style={{
+                width: 62, height: 62, borderRadius: 14, border: "2px solid #fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 32, color: "#fff",
+                background: "#000",
+              }}
+            >
+              {i + 1}
+            </div>
+            <div style={{ flex: 1, fontFamily: FONT_BODY, fontWeight: 700, fontSize: size * 0.72, lineHeight: 1.35, color: "#ffffff" }}>
+              {b}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** Bang scene — one keyword bursts center-stage with radial rays (the twist). */
+export const BangScene: React.FC<{ text: string }> = ({ text }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const words = text.split(" ");
+  const keyword = words.length > 4 ? words.slice(0, 3).join(" ") : text;
+  const rest = words.length > 4 ? words.slice(3).join(" ") : "";
+  const boom = spring({ frame, fps, config: { damping: 12, stiffness: 90 } });
+  const rays = 12;
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, top: "30%", textAlign: "center" }}>
+      {/* radial rays */}
+      <svg width={560} height={560} viewBox="0 0 560 560" style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", opacity: 0.9 * boom }}>
+        {Array.from({ length: rays }).map((_, i) => {
+          const a = (i / rays) * Math.PI * 2;
+          const x1 = 280 + Math.cos(a) * 90;
+          const y1 = 280 + Math.sin(a) * 90;
+          const x2 = 280 + Math.cos(a) * (240 + (i % 3) * 20);
+          const y2 = 280 + Math.sin(a) * (240 + (i % 3) * 20);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.5)" strokeWidth={3} />;
+        })}
+      </svg>
+      <div
+        style={{
+          position: "relative",
+          fontFamily: FONT_DISPLAY, fontWeight: 800,
+          fontSize: 92, lineHeight: 1.05, letterSpacing: "-0.03em",
+          color: "#ffffff",
+          transform: `scale(${0.7 + boom * 0.3})`,
+        }}
+      >
+        {keyword}
+      </div>
+      {rest && (
+        <div
+          style={{
+            position: "relative",
+            marginTop: 26, padding: "14px 30px", display: "inline-block",
+            background: "#ffffff", color: "#000000", borderRadius: 12,
+            fontFamily: FONT_BODY, fontWeight: 700, fontSize: 32,
+            opacity: boom,
+          }}
+        >
+          {rest}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Compact karaoke caption strip — subtitle support below the big visual. */
+export const MiniKaraoke: React.FC<{
+  sentences: { w: string; start: number; end: number }[];
+  size?: number;
+}> = ({ sentences, size = 26 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const now = frame / fps;
+  let activeIdx = 0;
+  for (let i = 0; i < sentences.length; i++) {
+    if (now >= sentences[i].start) { activeIdx = i; break; }
+  }
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "8%", right: "8%", bottom: "10.5%",
+        textAlign: "center",
+        fontFamily: FONT_BODY, fontWeight: 700, fontSize: size,
+        lineHeight: 1.35, color: "rgba(255,255,255,0.92)",
+        textShadow: "0 2px 0 rgba(0,0,0,0.9)",
+      }}
+    >
+      {sentences.map((s, i) => (
+        <span key={i} style={{ opacity: i === activeIdx ? 1 : 0.4 }}>
+          {s.w}
+          {i < sentences.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </div>
+  );
+};

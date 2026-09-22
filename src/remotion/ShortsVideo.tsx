@@ -9,6 +9,11 @@ import {
   KineticTitle,
   StatCounter,
   SlideMotion,
+  TerminalScene,
+  CompareScene,
+  BulletScene,
+  BangScene,
+  MiniKaraoke,
 } from "./parts";
 import { TweetCard, ThreadCard, NewsCard } from "./cards";
 
@@ -21,7 +26,7 @@ export type Segment = {
   label?: string;
   sentences?: Sentence[];
   /** optional explicit scene override */
-  scene?: "title" | "stat" | "caption" | "cta" | "tweet" | "thread" | "news";
+  scene?: "title" | "stat" | "caption" | "cta" | "tweet" | "thread" | "news" | "terminal" | "compare" | "fix" | "bullets" | "bang";
   stat?: { value: string; label: string };
   /** source content (tweet/thread/news) — rendered as a visual card scene */
   source?: {
@@ -72,12 +77,18 @@ function extractStat(text: string): { value: string; label: string } | null {
 function pickScene(seg: Segment, index: number): Segment["scene"] | "caption" {
   if (seg.scene) return seg.scene;
   const label = (seg.label || "").toUpperCase();
-  if (label === "HOOK" || label === "ON SCREEN") return "title";
+  // AI-tips scenes: terminal hook, mistake→compare(✗), insight→bullet list,
+  // fix→compare(✓), bang for conflict.
+  if (label === "THE MISTAKE" || label === "WHY IT FAILS") return "compare";
+  if (label === "THE FIX") return "fix";
+  if (label === "THE INSIGHT") return "bullets";
+  if (label === "HOOK") return "terminal";
   if (label === "CTA") return "cta";
   if (seg.source) return seg.source.type as "tweet" | "thread" | "news";
   if (seg.stat) return "stat";
   const stat = extractStat(seg.text);
   if (stat) return "stat";
+  if (label === "THE CONFLICT") return "bang";
   if (index % 3 === 2) return "title";
   return "caption";
 }
@@ -96,6 +107,60 @@ const Scene: React.FC<{
       ? seg.sentences
       : [{ w: text, start: 0, end: duration / 30 }];
   const src = seg.source;
+
+  // creative scenes: big visual + compact caption strip below
+  if (scene === "terminal") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <TerminalScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "compare" || scene === "fix") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <CompareScene text={text} side={scene === "fix" ? "good" : "bad"} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "bullets") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <BulletScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "bang") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <BangScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill>
