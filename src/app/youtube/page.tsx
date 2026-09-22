@@ -57,6 +57,9 @@ interface Script {
   seoChapters?: { time: string; label: string }[];
   titleVariants?: string[];
   thumbnailConcept?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  sourceUrl?: string;
 }
 
 // funnel stage tone: TOF = accent, MOF = warn, BOF = up
@@ -449,12 +452,29 @@ export default function YouTubePage() {
               )}
 
               {script.status === "approved" && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); queueRender(script.id); }}
-                  disabled={rendersBusy.has(script.id)}
-                  className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors disabled:opacity-60"
-                  style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
-                >{rendersBusy.has(script.id) ? "⏳ Queuing..." : "✨ Render Shorts"}</button>
+                <>
+                  <input
+                    placeholder="🔗 Tweet / News URL (opsional)"
+                    defaultValue={script.sourceUrl || ""}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => { e.currentTarget.dataset.url = e.target.value; }}
+                    className="text-xs px-3 py-1.5 rounded-[var(--r-md)] w-48 outline-none"
+                    style={{ background: "color-mix(in srgb, #fff 8%, transparent)", border: "1px solid color-mix(in srgb, #fff 18%, transparent)", color: "inherit" }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const v = (e.currentTarget.parentElement?.querySelector("input[data-url]") as HTMLInputElement)?.value || "";
+                      if (v.trim()) {
+                        updateScript(script.id, { status: "approved", sourceUrl: v.trim() });
+                      }
+                      queueRender(script.id);
+                    }}
+                    disabled={rendersBusy.has(script.id)}
+                    className="text-xs px-3 py-1.5 rounded-[var(--r-md)] font-medium transition-colors disabled:opacity-60"
+                    style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, transparent)" }}
+                  >{rendersBusy.has(script.id) ? "⏳ Queuing..." : "✨ Render Shorts"}</button>
+                </>
               )}
 
               {script.status === "render_queued" && (

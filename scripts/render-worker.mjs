@@ -19,6 +19,7 @@ import { PrismaClient } from "@prisma/client";
 import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
+import { execFileSync } from "child_process";
 
 const prisma = new PrismaClient();
 const RENDER_DIR = process.env.RENDER_DIR || "/data/renders";
@@ -45,6 +46,58 @@ const TTS_PYTHON =
     ? "/home/code/.hermes/hermes-agent/venv/bin/python3"
     : "python3");
 const TTS_WORDS_PY = path.resolve(process.env.TTS_WORDS_PY || "./scripts/tts-words.py");
+const SOURCE_FETCH_MJS = path.resolve(process.env.SOURCE_FETCH_MJS || "./scripts/source-fetch.mjs");
+
+/** Fetch source content (tweet/thread/news) for a URL via source-fetch.mjs. */
+function fetchSource(url) {
+  if (!url) return null;
+  try {
+    const out = execFileSync(process.execPath, [SOURCE_FETCH_MJS, url], {
+      timeout: 40_000,
+      encoding: "utf-8",
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+/** Convert fetched source data → src card shape for Remotion scenes. */
+function sourceToCard(fetched) {
+  if (!fetched || fetched.type === "error") return null;
+  if (fetched.type === "tweet") {
+    const root = fetched.tweets?.find((t) => t.isRoot) || fetched.tweets?.[0];
+    if (!root) return null;
+    if (fetched.tweets.length > 1) {
+      return {
+        type: "thread",
+        handle: fetched.handle,
+        tweets: fetched.tweets.map((t) => ({ text: t.text, name: t.name })),
+      };
+    }
+    return {
+      type: "tweet",
+      handle: root.handle,
+      name: root.name,
+      text: root.text,
+      likes: root.likes,
+      retweets: root.retweets,
+      replies: root.replies,
+      views: root.views,
+    };
+  }
+  if (fetched.type === "news") {
+    return {
+      type: "news",
+      title: fetched.title,
+      excerpt: fetched.excerpt,
+      author: fetched.author,
+      source: new URL(fetched.url).hostname.replace(/^www\./, ""),
+    };
+  }
+  return null;
+}
 
 function sh(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
@@ -146,6 +199,15 @@ async function renderScript(script) {
     log(`[${id}] seg${i}: ${t.durationSec.toFixed(2)}s "${s.text.slice(0, 40)}"`);
   }
 
+  // 1b. Fetch source content (tweet/thread/news) if script has sourceUrl
+  let sourceCard = null;
+  if (script.sourceUrl) {
+    log(`[${id}] fetching source: ${script.sourceUrl}`);
+    const fetched = fetchSource(script.sourceUrl);
+    sourceCard = sourceToCard(fetched);
+    log(`[${id}] source → ${sourceCard ? sourceCard.type : "fetch failed (skip card)"}`);
+  }
+
   // 2. Trim to ≤ MAX_TOTAL_SEC (keep head, drop tail)
   let totalSec = voiced.reduce((a, s) => a + s.durationSec, 0);
   if (totalSec > MAX_TOTAL_SEC) {
@@ -170,6 +232,22 @@ async function renderScript(script) {
     sentences: s.sentences || undefined,
     stat: extractStatData(s.text),
   }));
+
+  // Inject source card scene — REPLACES the visual of the 2nd segment
+  // (story). Total timeline duration stays == audio duration, so the mux
+  // stays in sync (no -shortest tail loss). The story voiceover keeps
+  // playing while the actual tweet/news card is shown on screen.
+  if (sourceCard && timeline.length >= 2) {
+    const idx = Math.min(1, timeline.length - 1);
+    const cardScene = {
+      text: sourceCard.type === "news" ? (sourceCard.title || "") : (sourceCard.text || sourceCard.tweets?.[0]?.text || ""),
+      duration: timeline[idx].duration, // same duration — replaces, not adds
+      label: sourceCard.type === "news" ? "SOURCE" : "ORIGINAL",
+      source: sourceCard,
+    };
+    timeline.splice(idx, 1, cardScene);
+    log(`[${id}] replaced seg${idx} visual with ${sourceCard.type} card (${cardScene.duration / FPS}s)`);
+  }
 
   // 4. Render silent video via Remotion CLI (props = segments JSON)
   const silentMp4 = path.join(work, "silent.mp4");

@@ -169,6 +169,9 @@ model YoutubeScript {
   videoUrl        String?
   thumbnailUrl    String?
   render          YoutubeRender?
+  // Source content (tweet/thread/news) rendered as visual cards
+  sourceUrl       String?
+  sourceData      Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

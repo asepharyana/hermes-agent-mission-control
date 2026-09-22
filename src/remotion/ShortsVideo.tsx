@@ -10,6 +10,7 @@ import {
   StatCounter,
   SlideMotion,
 } from "./parts";
+import { TweetCard, ThreadCard, NewsCard } from "./cards";
 
 /** Sentence timing (karaoke), relative to segment start. */
 export type Sentence = { w: string; start: number; end: number };
@@ -20,8 +21,25 @@ export type Segment = {
   label?: string;
   sentences?: Sentence[];
   /** optional explicit scene override */
-  scene?: "title" | "stat" | "caption" | "cta";
+  scene?: "title" | "stat" | "caption" | "cta" | "tweet" | "thread" | "news";
   stat?: { value: string; label: string };
+  /** source content (tweet/thread/news) — rendered as a visual card scene */
+  source?: {
+    type: "tweet" | "thread" | "news";
+    handle?: string;
+    name?: string;
+    text?: string;
+    isRoot?: boolean;
+    likes?: number | null;
+    retweets?: number | null;
+    replies?: number | null;
+    views?: number | null;
+    tweets?: { text: string; name?: string }[];
+    title?: string;
+    excerpt?: string;
+    author?: string;
+    source?: string;
+  };
 };
 
 /** Truncate at a word boundary (never cut mid-word). */
@@ -51,11 +69,12 @@ function extractStat(text: string): { value: string; label: string } | null {
 }
 
 /** Pick a scene for this segment (variety — pattern interrupt every cut). */
-function pickScene(seg: Segment, index: number): "title" | "stat" | "caption" | "cta" {
+function pickScene(seg: Segment, index: number): Segment["scene"] | "caption" {
   if (seg.scene) return seg.scene;
   const label = (seg.label || "").toUpperCase();
   if (label === "HOOK" || label === "ON SCREEN") return "title";
   if (label === "CTA") return "cta";
+  if (seg.source) return seg.source.type as "tweet" | "thread" | "news";
   if (seg.stat) return "stat";
   const stat = extractStat(seg.text);
   if (stat) return "stat";
@@ -76,6 +95,7 @@ const Scene: React.FC<{
     seg.sentences && seg.sentences.length
       ? seg.sentences
       : [{ w: text, start: 0, end: duration / 30 }];
+  const src = seg.source;
 
   return (
     <AbsoluteFill>
@@ -83,7 +103,26 @@ const Scene: React.FC<{
       <SlideMotion>
         {label ? <BrandTag label={label} /> : null}
 
-        {scene === "stat" && stat ? (
+        {scene === "tweet" && src ? (
+          <TweetCard
+            handle={src.handle || ""}
+            name={src.name || src.handle || ""}
+            text={src.text || text}
+            likes={src.likes}
+            retweets={src.retweets}
+            replies={src.replies}
+            views={src.views}
+          />
+        ) : scene === "thread" && src?.tweets ? (
+          <ThreadCard handle={src.handle || ""} tweets={src.tweets} />
+        ) : scene === "news" && src ? (
+          <NewsCard
+            title={src.title || text}
+            excerpt={src.excerpt}
+            author={src.author}
+            source={src.source}
+          />
+        ) : scene === "stat" && stat ? (
           <StatCounter value={stat.value} label={stat.label} />
         ) : scene === "title" || scene === "cta" ? (
           <>
