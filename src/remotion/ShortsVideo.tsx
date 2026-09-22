@@ -77,18 +77,18 @@ function extractStat(text: string): { value: string; label: string } | null {
 function pickScene(seg: Segment, index: number): Segment["scene"] | "caption" {
   if (seg.scene) return seg.scene;
   const label = (seg.label || "").toUpperCase();
-  // AI-tips scenes: terminal hook, mistake→compare(✗), insight→bullet list,
-  // fix→compare(✓), bang for conflict.
+  // AI-tips scenes handled by worker override; here we only route the shared
+  // creative variety (bang for twist, bullets for insight) — HOOK stays title.
   if (label === "THE MISTAKE" || label === "WHY IT FAILS") return "compare";
   if (label === "THE FIX") return "fix";
   if (label === "THE INSIGHT") return "bullets";
-  if (label === "HOOK") return "terminal";
+  if (label === "THE CONFLICT") return "bang";
+  if (label === "HOOK" || label === "ON SCREEN") return "title";
   if (label === "CTA") return "cta";
   if (seg.source) return seg.source.type as "tweet" | "thread" | "news";
   if (seg.stat) return "stat";
   const stat = extractStat(seg.text);
   if (stat) return "stat";
-  if (label === "THE CONFLICT") return "bang";
   if (index % 3 === 2) return "title";
   return "caption";
 }

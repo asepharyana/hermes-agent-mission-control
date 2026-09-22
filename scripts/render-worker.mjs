@@ -237,13 +237,27 @@ async function renderScript(script) {
   }
 
   // 3. Remotion timeline (frames)
-  const timeline = voiced.map((s) => ({
-    text: s.text,
-    duration: Math.max(30, Math.round(s.durationSec * FPS)),
-    label: s.label,
-    sentences: s.sentences || undefined,
-    stat: extractStatData(s.text),
-  }));
+  const timeline = voiced.map((s) => {
+    const t = {
+      text: s.text,
+      duration: Math.max(30, Math.round(s.durationSec * FPS)),
+      label: s.label,
+      sentences: s.sentences || undefined,
+      stat: extractStatData(s.text),
+    };
+    // AI-agent tips: force scene per label for the terminal/compare/bullets/bang
+    // variety (brands keep their own kinetic/caption mapping).
+    const L = (s.label || "").toUpperCase();
+    if (script.category === "ai-agent-tips") {
+      if (L === "HOOK") t.scene = "terminal";
+      else if (L === "THE MISTAKE" || L === "WHY IT FAILS") t.scene = "compare";
+      else if (L === "THE FIX") t.scene = "fix";
+      else if (L === "THE INSIGHT") t.scene = "bullets";
+      else if (L === "THE CONFLICT") t.scene = "bang";
+      else if (L === "CTA") t.scene = "cta";
+    }
+    return t;
+  });
 
   // Inject source card scene — REPLACES the visual of the 2nd segment
   // (story). Total timeline duration stays == audio duration, so the mux
