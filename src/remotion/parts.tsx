@@ -10,69 +10,102 @@ import "@fontsource/inter/700.css";
 import "@fontsource/montserrat/800.css";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Shorts design system.
-   Fonts: Inter 700 (captions/body), Montserrat 800 (display).
+   Shorts design system — MONOCHROME FLAT.
+   No gradients, no purple. Black & white, flat shapes, bold typography.
+   Fonts: Montserrat 800 (display), Inter 700 (captions/body).
    Safe zone: 900×1400 centered (universal TikTok/Reels/Shorts).
-   Perf rule: NO blur filters / SVG noise (software Chrome ~10x slower).
+   Perf rule: NO blur / SVG noise filters (software Chrome ~10x slower).
    ───────────────────────────────────────────────────────────────────────── */
 
 export const FONT_DISPLAY = "Montserrat, Inter, system-ui, sans-serif";
 export const FONT_BODY = "Inter, system-ui, sans-serif";
 
-/** Per-segment background palette (variety between scenes). */
-const PALETTES = [
-  { base: "linear-gradient(155deg,#0b1020 0%,#141a33 45%,#1b1030 100%)", a1: "99,102,241", a2: "236,72,153" },
-  { base: "linear-gradient(155deg,#0a1628 0%,#0e2a3a 45%,#0a1f2e 100%)", a1: "56,189,248", a2: "16,185,129" },
-  { base: "linear-gradient(155deg,#160b20 0%,#2a1040 45%,#1b0a2e 100%)", a1: "168,85,247", a2: "244,114,182" },
-  { base: "linear-gradient(155deg,#1a0f0b 0%,#2e1a12 45%,#21100a 100%)", a1: "251,146,60", a2: "239,68,68" },
+/** Solid near-black scene backgrounds (subtle variety, still monochrome). */
+const SCENES = [
+  { bg: "#0d0d0f", motif: "circles" },    // concentric ring
+  { bg: "#121216", motif: "plus" },       // plus marks
+  { bg: "#101014", motif: "barcode" },    // vertical bars
+  { bg: "#15151a", motif: "rings" },      // target rings
+  { bg: "#0f0f12", motif: "diag" },       // diagonal ticks
 ];
 
-/** Animated background: gradient + drifting pre-softened orbs + dot grid. */
+/** Flat mono background: solid color + faint white SVG motif per scene. */
 export const SvgBackground: React.FC<{ variant?: number }> = ({ variant = 0 }) => {
-  const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
+  const frame = useCurrentFrame();
   const t = frame / 60;
-  const p = PALETTES[variant % PALETTES.length];
+  const s = SCENES[variant % SCENES.length];
+  const stroke = "rgba(255,255,255,0.14)";
+  const strokeSoft = "rgba(255,255,255,0.07)";
 
   return (
-    <AbsoluteFill style={{ background: p.base }}>
-      <div
-        style={{
-          position: "absolute",
-          width: width * 0.85,
-          height: width * 0.85,
-          left: width * 0.08 + Math.sin(t * 0.9) * 70,
-          top: height * 0.06 + Math.sin(t * 0.7) * 50,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, rgba(${p.a1},0.34) 0%, rgba(${p.a1},0.16) 42%, transparent 70%)`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          width: width * 0.65,
-          height: width * 0.65,
-          right: -width * 0.12 + Math.cos(t * 1.1) * 60,
-          bottom: height * 0.16 + Math.cos(t * 0.8) * 40,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, rgba(${p.a2},0.30) 0%, rgba(${p.a2},0.13) 42%, transparent 70%)`,
-        }}
-      />
-      {/* faint dot grid */}
+    <AbsoluteFill style={{ background: s.bg }}>
+      {/* faint motion — shape drifts very slowly (transform only, cheap) */}
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        {s.motif === "circles" && (
+          <>
+            <circle cx={width * 0.82} cy={height * 0.2} r={240} fill="none" stroke={stroke} strokeWidth={1.5} />
+            <circle cx={width * 0.82} cy={height * 0.2} r={300} fill="none" stroke={strokeSoft} strokeWidth={1} />
+            <circle cx={width * 0.14} cy={height * 0.78} r={90} fill="none" stroke={strokeSoft} strokeWidth={1} />
+          </>
+        )}
+        {s.motif === "plus" && (
+          <>
+            {[0.12, 0.22, 0.5, 0.72, 0.88].map((x, i) => (
+              <g key={i} transform={`translate(${width * x}, ${height * (0.2 + i * 0.16)})`} stroke={stroke} strokeWidth={2}>
+                <line x1={-13} y1={0} x2={13} y2={0} />
+                <line x1={0} y1={-13} x2={0} y2={13} />
+              </g>
+            ))}
+          </>
+        )}
+        {s.motif === "barcode" && (
+          <>
+            {[30, 70, 110, 150, 190, 230, 270, 310].map((x, i) => (
+              <rect key={i} x={x} y={height * 0.12} width={i % 3 === 0 ? 6 : 3} height={height * 0.3} fill={stroke} />
+            ))}
+            {[width - 330, width - 290, width - 250, width - 210, width - 170, width - 130, width - 90].map((x, i) => (
+              <rect key={i} x={x} y={height * 0.62} width={i % 2 === 0 ? 5 : 2} height={height * 0.26} fill={stroke} />
+            ))}
+          </>
+        )}
+        {s.motif === "rings" && (
+          <>
+            <circle cx={width * 0.5} cy={height * 0.34} r={150} fill="none" stroke={stroke} strokeWidth={2} />
+            <circle cx={width * 0.5} cy={height * 0.34} r={120} fill="none" stroke={strokeSoft} strokeWidth={1.5} />
+            <circle cx={width * 0.5} cy={height * 0.34} r={90} fill="none" stroke={stroke} strokeWidth={1} />
+          </>
+        )}
+        {s.motif === "diag" && (
+          <>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <line key={i} x1={width * 0.1 + i * 46} y1={height * 0.05} x2={width * 0.25 + i * 46} y2={height * 0.45} stroke={strokeSoft} strokeWidth={2} />
+            ))}
+            {[0, 1, 2, 3].map((i) => (
+              <line key={i} x1={width * 0.68 + i * 40} y1={height * 0.55} x2={width * 0.8 + i * 40} y2={height * 0.95} stroke={stroke} strokeWidth={2} />
+            ))}
+          </>
+        )}
+      </svg>
+      {/* slow drift to keep the frame alive */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          opacity: 0.5,
+          transform: `translateY(${Math.sin(t * 0.8) * 10}px)`,
+          pointerEvents: "none",
         }}
       />
     </AbsoluteFill>
   );
 };
 
-/** Glass card (translucent, rounded, border) for caption blocks. */
+/** Flat card (solid white — inversion against the black background). */
 export const GlassCard: React.FC<{
   children: React.ReactNode;
   style?: React.CSSProperties;
@@ -87,12 +120,10 @@ export const GlassCard: React.FC<{
         left: "5%",
         right: "5%",
         bottom: "13%",
-        padding: "30px 32px",
-        borderRadius: 28,
-        background: "rgba(8,10,18,0.68)",
-        border: "1px solid rgba(255,255,255,0.14)",
-        boxShadow: "0 14px 44px rgba(0,0,0,0.4)",
-        transform: `translateY(${(1 - pop) * 26}px) scale(${0.97 + pop * 0.03})`,
+        padding: "30px 34px",
+        borderRadius: 20,
+        background: "#f2f2f4",
+        transform: `translateY(${(1 - pop) * 26}px)`,
         ...style,
       }}
     >
@@ -101,11 +132,11 @@ export const GlassCard: React.FC<{
   );
 };
 
-/** Karaoke caption: active sentence full-bright, others dimmed (synced to TTS). */
+/** Karaoke caption: active sentence full-black, others grey (on white card). */
 export const CaptionKaraoke: React.FC<{
   sentences: { w: string; start: number; end: number }[];
   size?: number;
-}> = ({ sentences, size = 44 }) => {
+}> = ({ sentences, size = 46 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const now = frame / fps;
@@ -114,13 +145,6 @@ export const CaptionKaraoke: React.FC<{
   for (let i = 0; i < sentences.length; i++) {
     if (now >= sentences[i].start) { activeIdx = i; break; }
   }
-  const active = sentences[activeIdx];
-  const flash = active
-    ? interpolate(now, [active.start, active.start + 0.12, active.start + 0.35], [1, 1.06, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      })
-    : 1;
 
   return (
     <div
@@ -128,16 +152,13 @@ export const CaptionKaraoke: React.FC<{
         fontFamily: FONT_BODY,
         fontWeight: 700,
         fontSize: size,
-        lineHeight: 1.34,
-        color: "#ffffff",
+        lineHeight: 1.3,
+        color: "#000000",
         letterSpacing: "-0.01em",
-        textShadow: "0 2px 14px rgba(0,0,0,0.55)",
-        transform: `scale(${flash})`,
-        transformOrigin: "left center",
       }}
     >
       {sentences.map((s, i) => (
-        <span key={i} style={{ opacity: i === activeIdx ? 1 : 0.4 }}>
+        <span key={i} style={{ opacity: i === activeIdx ? 1 : 0.35 }}>
           {s.w}
           {i < sentences.length - 1 ? " " : ""}
         </span>
@@ -146,14 +167,14 @@ export const CaptionKaraoke: React.FC<{
   );
 };
 
-/** Big display title with word-by-word kinetic entrance. */
+/** Big display title, word-by-word kinetic entrance, accent = inverted block. */
 export const KineticTitle: React.FC<{
   text: string;
   size?: number;
   accentIndex?: number;
   accentColor?: string;
   position?: "top" | "center";
-}> = ({ text, size = 88, accentIndex = -1, accentColor = "#a5b4fc", position = "top" }) => {
+}> = ({ text, size = 88, accentIndex = -1, position = "top" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 13, stiffness: 100 } });
@@ -175,20 +196,23 @@ export const KineticTitle: React.FC<{
           key={i}
           style={{
             display: "inline-block",
-            marginRight: "0.2em",
+            marginRight: "0.18em",
+            marginBottom: "0.08em",
             fontFamily: FONT_DISPLAY,
             fontWeight: 800,
             fontSize: size,
             lineHeight: 1.1,
             letterSpacing: "-0.03em",
-            color: i === accentIndex ? accentColor : "#ffffff",
-            textShadow: "0 4px 24px rgba(0,0,0,0.5)",
+            color: i === accentIndex ? "#000000" : "#ffffff",
+            background: i === accentIndex ? "#ffffff" : "transparent",
+            padding: i === accentIndex ? "0 0.1em 0.02em" : "0",
+            borderRadius: 10,
             opacity: interpolate(frame, [i * dur, i * dur + dur * 0.5], [0, 1], {
               extrapolateRight: "clamp",
             }),
-            transform: `scale(${interpolate(frame, [i * dur, i * dur + dur * 0.6], [0.78, 1], {
+            transform: `translateY(${interpolate(frame, [i * dur, i * dur + dur * 0.6], [26, 0], {
               extrapolateRight: "clamp",
-            })})`,
+            })}px)`,
           }}
         >
           {w}
@@ -198,12 +222,11 @@ export const KineticTitle: React.FC<{
   );
 };
 
-/** Huge stat/number card (pattern interrupt for facts). */
+/** Huge stat with a thin rectangle frame behind (flat, editorial). */
 export const StatCounter: React.FC<{
   value: string;
   label: string;
-  color?: string;
-}> = ({ value, label, color = "#a5b4fc" }) => {
+}> = ({ value, label }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 14, stiffness: 90 } });
@@ -211,34 +234,55 @@ export const StatCounter: React.FC<{
     <div
       style={{
         position: "absolute",
-        left: "6%",
-        right: "6%",
-        top: "34%",
+        left: "10%",
+        right: "10%",
+        top: "26%",
         textAlign: "center",
         transform: `scale(${0.85 + pop * 0.15})`,
       }}
     >
       <div
         style={{
+          position: "absolute",
+          inset: "-28px -40px",
+          border: "2px solid rgba(255,255,255,0.85)",
+          borderRadius: 16,
+          transform: `rotate(${(1 - pop) * 6}deg)`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: "-16px -24px",
+          border: "1px solid rgba(255,255,255,0.25)",
+          borderRadius: 12,
+          transform: `translate(${(1 - pop) * 10}px, ${(1 - pop) * 10}px)`,
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
           fontFamily: FONT_DISPLAY,
           fontWeight: 800,
-          fontSize: 132,
-          color,
+          fontSize: 134,
+          color: "#ffffff",
           lineHeight: 1,
           letterSpacing: "-0.04em",
-          textShadow: "0 6px 30px rgba(0,0,0,0.55)",
         }}
       >
         {value}
       </div>
       <div
         style={{
+          position: "relative",
           fontFamily: FONT_BODY,
           fontWeight: 700,
-          fontSize: 36,
-          color: "rgba(255,255,255,0.8)",
-          marginTop: 20,
+          fontSize: 34,
+          color: "rgba(255,255,255,0.85)",
+          marginTop: 22,
           lineHeight: 1.3,
+          textTransform: "uppercase",
+          letterSpacing: "0.02em",
         }}
       >
         {label}
@@ -247,36 +291,32 @@ export const StatCounter: React.FC<{
   );
 };
 
-/** Top-left scene label pill. */
-export const BrandTag: React.FC<{ label: string; variant?: number }> = ({ label, variant = 0 }) => {
-  const p = PALETTES[variant % PALETTES.length];
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: "6%",
-        top: "6%",
-        padding: "10px 22px",
-        borderRadius: 999,
-        background: `rgba(${p.a1},0.16)`,
-        border: `1px solid rgba(${p.a1},0.45)`,
-        color: `rgb(${p.a1})`,
-        fontSize: 30,
-        fontWeight: 700,
-        fontFamily: FONT_BODY,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-      }}
-    >
-      {label}
-    </div>
-  );
-};
+/** Top-left scene label (flat outline pill). */
+export const BrandTag: React.FC<{ label: string }> = ({ label }) => (
+  <div
+    style={{
+      position: "absolute",
+      left: "6%",
+      top: "6%",
+      padding: "10px 22px",
+      borderRadius: 999,
+      border: "2px solid #ffffff",
+      color: "#ffffff",
+      fontSize: 28,
+      fontWeight: 700,
+      fontFamily: FONT_BODY,
+      letterSpacing: "0.14em",
+      textTransform: "uppercase",
+      background: "transparent",
+    }}
+  >
+    {label}
+  </div>
+);
 
-/** Bottom progress bar (per-segment fill). */
-export const ProgressBar: React.FC<{ total: number; variant?: number }> = ({ total, variant = 0 }) => {
+/** Bottom progress bar — solid white fill on faint track. */
+export const ProgressBar: React.FC<{ total: number }> = ({ total }) => {
   const frame = useCurrentFrame();
-  const p = PALETTES[variant % PALETTES.length];
   const pct = interpolate(frame, [0, total], [0, 100], { extrapolateRight: "clamp" });
   return (
     <div
@@ -285,9 +325,9 @@ export const ProgressBar: React.FC<{ total: number; variant?: number }> = ({ tot
         left: "6%",
         right: "6%",
         bottom: "6%",
-        height: 8,
+        height: 7,
         borderRadius: 99,
-        background: "rgba(255,255,255,0.16)",
+        background: "rgba(255,255,255,0.18)",
         overflow: "hidden",
       }}
     >
@@ -296,7 +336,7 @@ export const ProgressBar: React.FC<{ total: number; variant?: number }> = ({ tot
           width: `${pct}%`,
           height: "100%",
           borderRadius: 99,
-          background: `linear-gradient(90deg, rgb(${p.a1}), rgb(${p.a2}))`,
+          background: "#ffffff",
         }}
       />
     </div>
@@ -308,8 +348,8 @@ export const SlideMotion: React.FC<{ children: React.ReactNode }> = ({ children 
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
-  const y = Math.sin(t * 1.4) * 14;
-  const scale = 1 + Math.sin(t * 0.8) * 0.014;
+  const y = Math.sin(t * 1.4) * 12;
+  const scale = 1 + Math.sin(t * 0.8) * 0.012;
   return (
     <AbsoluteFill style={{ transform: `translateY(${y}px) scale(${scale})` }}>
       {children}

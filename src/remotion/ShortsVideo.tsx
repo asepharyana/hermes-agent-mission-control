@@ -81,7 +81,7 @@ const Scene: React.FC<{
     <AbsoluteFill>
       <SvgBackground variant={index} />
       <SlideMotion>
-        {label ? <BrandTag label={label} variant={index} /> : null}
+        {label ? <BrandTag label={label} /> : null}
 
         {scene === "stat" && stat ? (
           <StatCounter value={stat.value} label={stat.label} />
@@ -106,7 +106,7 @@ const Scene: React.FC<{
           </>
         )}
 
-        <ProgressBar total={duration} variant={index} />
+        <ProgressBar total={duration} />
         {/* time code (subtle, right side) */}
         <div
           style={{
