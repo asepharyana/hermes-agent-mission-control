@@ -17,7 +17,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { spawnSync } from "child_process";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
 
 const prisma = new PrismaClient();
@@ -39,6 +39,12 @@ mkdirSync(SCRATCH, { recursive: true });
 
 const REMOTION_ROOT = path.resolve(process.env.REMOTION_ROOT || "./src/remotion");
 const REMOTION_ENTRY = path.join(REMOTION_ROOT, "index.tsx");
+const TTS_PYTHON =
+  process.env.TTS_PYTHON ||
+  (existsSync("/home/code/.hermes/hermes-agent/venv/bin/python3")
+    ? "/home/code/.hermes/hermes-agent/venv/bin/python3"
+    : "python3");
+const TTS_WORDS_PY = path.resolve(process.env.TTS_WORDS_PY || "./scripts/tts-words.py");
 
 function sh(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
@@ -54,11 +60,18 @@ function sh(cmd, args, opts = {}) {
 
 function tts(text, outBase) {
   const out = `${outBase}.mp3`;
-  sh(EDGE_TTS_BIN, ["--voice", VOICE, "--text", text, "--write-media", out], {
-    timeout: 60_000,
-    env: { ...process.env },
-  });
-  return { file: out, durationSec: ffprobeDuration(out) };
+  const srt = `${outBase}.sentences.json`;
+  sh(
+    TTS_PYTHON,
+    [TTS_WORDS_PY, text, VOICE, out, srt],
+    { timeout: 60_000, env: { ...process.env } }
+  );
+  let sentences = [];
+  try {
+    sentences = JSON.parse(readFileSync(srt, "utf-8"));
+  } catch { /* fallback: single sentence */ }
+  if (!sentences.length) sentences = [{ w: text, start: 0, end: 0 }];
+  return { file: out, durationSec: ffprobeDuration(out), sentences };
 }
 
 function ffprobeDuration(file) {
@@ -80,6 +93,23 @@ function ffprobeSize(file) {
 }
 
 function log(...a) { console.log(new Date().toISOString(), ...a); }
+
+/** Truncate at a word boundary (never cut mid-word). */
+function clipWords(s, max) {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > max * 0.5 ? cut.slice(0, sp) : cut).trim() + "…";
+}
+
+/** Detect a stat worth rendering as a big-number scene: $12B, 65%, 3.2M. */
+function extractStatData(text) {
+  const m = text.match(/(\$?\d+(?:\.\d+)?\s?(?:[BMK]%|billion|million|%))/i);
+  if (!m) return null;
+  const rest = text.replace(m[0], "").replace(/^[^A-Za-z0-9]+/, "").trim();
+  if (rest.length < 5) return null;
+  return { value: m[1].trim(), label: clipWords(rest, 70) };
+}
 
 /** Build segment text list from a YoutubeScript's structured fields. */
 function buildSegments(script) {
@@ -133,12 +163,12 @@ async function renderScript(script) {
   }
 
   // 3. Remotion timeline (frames)
-  const timeline = voiced.map((s, i) => ({
+  const timeline = voiced.map((s) => ({
     text: s.text,
     duration: Math.max(30, Math.round(s.durationSec * FPS)),
-    size: baseSegs.length <= 4 ? 80 : 68,
     label: s.label,
-    highlight: s.highlight || undefined,
+    sentences: s.sentences || undefined,
+    stat: extractStatData(s.text),
   }));
 
   // 4. Render silent video via Remotion CLI (props = segments JSON)
