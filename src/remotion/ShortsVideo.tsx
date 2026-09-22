@@ -69,10 +69,8 @@ const ASSET_POOL = [
 type AssetKey = (typeof ASSET_POOL)[number];
 
 const AssetDecor: React.FC<{ index: number; seed: number; text: string; label: string }> = ({ index, seed = 0, text, label }) => {
-  // skip asset on tiny/labeled scenes? no — variety is the point; but CTA/HOOK
-  // already have big visuals so only attach to caption-ish scenes by intent.
+  // skip asset only for source cards — they already render a big visual.
   const L = (label || "").toUpperCase();
-  if (["CTA", "HOOK", "ON SCREEN"].includes(L)) return null;
   // Label-aware asset choice: THE STORY → growth charts, THE CONFLICT → bang
   // energy (pulse/ring), THE INSIGHT → checklist/nodeflow. Falls back to the
   // seeded pool for anything else, so videos vary regardless.
@@ -293,7 +291,7 @@ const Scene: React.FC<{
         <SvgBackground variant={index + (seed || 0)} />
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
-          {scene === "caption" ? (
+          {scene === "caption" || scene === "title" || scene === "cta" ? (
             <AssetDecor index={index} seed={seed} text={text} label={label || ""} />
           ) : null}
           <KineticTitle text={titleFor(seg)} size={54} />
