@@ -28,6 +28,16 @@ import {
   Checklist,
   HudFrame,
   StatBlock,
+  BouncyCount,
+  SplitText,
+  Banner,
+  TrackProgress,
+  CloudTag,
+  CardFan,
+  CameraPip,
+  WorldClock,
+  PercentageHands,
+  PadlockPulse,
 } from "./assets";
 
 /** Asset pool — a visual building block sits above the caption card on
@@ -45,6 +55,16 @@ const ASSET_POOL = [
   "checklist",
   "hud",
   "stat",
+  "bouncy",
+  "split",
+  "banner",
+  "track",
+  "cloud",
+  "fan",
+  "camera",
+  "world",
+  "hands",
+  "lock",
 ] as const;
 type AssetKey = (typeof ASSET_POOL)[number];
 
@@ -58,15 +78,19 @@ const AssetDecor: React.FC<{ index: number; seed: number; text: string; label: s
   // seeded pool for anything else, so videos vary regardless.
   let key: AssetKey;
   if (L === "THE STORY") {
-    key = (["chartbars", "chartline", "ticker", "stat"] as AssetKey[])[(index + seed) % 4];
+    key = (["chartbars", "chartline", "ticker", "stat", "bouncy"] as AssetKey[])[(index + seed) % 5];
   } else if (L === "THE CONFLICT") {
-    key = (["pulse", "ring", "gauge", "pulse"] as AssetKey[])[(index + seed) % 4];
+    key = (["pulse", "ring", "gauge", "pulse", "hands"] as AssetKey[])[(index + seed) % 5];
   } else if (L === "THE INSIGHT") {
-    key = (["checklist", "nodeflow", "stat", "checklist"] as AssetKey[])[(index + seed) % 4];
+    key = (["checklist", "nodeflow", "stat", "checklist", "track"] as AssetKey[])[(index + seed) % 5];
   } else if (L === "THE MISTAKE" || L === "WHY IT FAILS") {
-    key = "pulse";
+    key = (["pulse", "lock", "ring", "hands"] as AssetKey[])[(index + seed) % 4];
   } else if (L === "THE FIX") {
-    key = "checklist";
+    key = (["checklist", "track", "checklist", "fan"] as AssetKey[])[(index + seed) % 4];
+  } else if (L === "HOOK") {
+    key = (["bouncy", "banner", "bouncy", "split"] as AssetKey[])[(index + seed) % 4];
+  } else if (L === "CTA") {
+    key = (["banner", "bouncy", "hands", "banner"] as AssetKey[])[(index + seed) % 4];
   } else {
     key = ASSET_POOL[(index + seed) % ASSET_POOL.length];
   }
@@ -86,6 +110,16 @@ const AssetDecor: React.FC<{ index: number; seed: number; text: string; label: s
       case "checklist": return <Checklist items={["PLAN", "BUILD", "SHIP"]} delay={delay} />;
       case "hud": return <HudFrame label={words > 4 ? "SYSTEM" : "DATA"} />;
       case "stat": return <StatBlock value={`${(seed % 8) + 3}${index % 2 ? "M" : "%"}`} sub="REACH" />;
+      case "bouncy": return <BouncyCount to={50 + ((seed + index) % 50)} label={words > 6 ? "PROGRESS" : "SCORE"} suffix="%" delay={delay} />;
+      case "split": return <SplitText a={words > 5 ? "OLD" : "DON'T"} b={words > 5 ? "NEW" : "DO"} delay={delay} />;
+      case "banner": return <Banner title={words > 6 ? "KEY TAKEAWAY" : "REMEMBER"} sub={text.toUpperCase().slice(0, 40)} delay={delay} />;
+      case "track": return <TrackProgress steps={["01", "02", "03", "04"]} delay={delay} />;
+      case "cloud": return <CloudTag tags={["AGENT", "MEMORY", "TOOLS", "PROMPTS"]} delay={delay} />;
+      case "fan": return <CardFan delay={delay} />;
+      case "camera": return <CameraPip label="REC" delay={delay} />;
+      case "world": return <WorldClock delay={delay} />;
+      case "hands": return <PercentageHands delay={delay} />;
+      case "lock": return <PadlockPulse closed={index % 2 === 1} delay={delay} />;
       default: return null;
     }
   };

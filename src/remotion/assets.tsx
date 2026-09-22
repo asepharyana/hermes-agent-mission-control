@@ -306,3 +306,270 @@ export const StatBlock: React.FC<{ value: string; sub: string; delay?: number }>
     </div>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ROUND 2 — 11 more reusable assets (mono flat, transform-only).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Bouncy counter — digits roll up to a target value (rolling-wrap odometer). */
+export const BouncyCount: React.FC<{ to?: number; label?: string; delay?: number; suffix?: string }> = ({ to = 100, label = "GOAL", delay = 0, suffix = "%" }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 18, stiffness: 55 } });
+  const val = Math.round(to * p);
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 190, lineHeight: 1, color: "#fff" }}>
+        {val}
+        <span style={{ fontSize: 70, color: "rgba(255,255,255,0.6)" }}>{suffix}</span>
+      </div>
+      <div style={{ fontFamily: FONT_BODY, fontWeight: 700, fontSize: 30, letterSpacing: "0.3em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", marginTop: 8 }}>
+        {label}
+      </div>
+    </div>
+  );
+};
+
+/** Split reveal — two words slide apart from a single point with a thin divider. */
+export const SplitText: React.FC<{ a?: string; b?: string; delay?: number }> = ({ a = "BEFORE", b = "AFTER", delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 18, stiffness: 70 } });
+  const dist = 60 + (1 - p) * 220;
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40, width: "100%" }}>
+      <div style={{ transform: `translateX(${-dist}px)`, opacity: p, fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 56, letterSpacing: "0.1em", color: "rgba(255,255,255,0.55)" }}>
+        {a}
+      </div>
+      <div style={{ width: 3, height: 90, background: "#fff", transform: `scaleY(${p})` }} />
+      <div style={{ transform: `translateX(${dist}px)`, opacity: p, fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 56, letterSpacing: "0.1em", color: "#fff" }}>
+        {b}
+      </div>
+    </div>
+  );
+};
+
+/** Dipping label — a pill badge that slides in with a "value" line underneath. */
+export const Banner: React.FC<{ title?: string; sub?: string; delay?: number }> = ({ title = "KEY TAKEAWAY", sub = "SHIP EARLY, LEARN FAST", delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 16, stiffness: 90 } });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+      <div style={{ transform: `translateY(${(1 - p) * 60}px)`, opacity: p, fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 44, letterSpacing: "0.2em", color: "#fff", border: "2px solid rgba(255,255,255,0.8)", padding: "16px 34px", borderRadius: 99 }}>
+        {title}
+      </div>
+      <div style={{ opacity: Math.max(0, p * 2 - 1), fontFamily: FONT_BODY, fontWeight: 700, fontSize: 32, color: "rgba(255,255,255,0.75)", letterSpacing: "0.05em" }}>
+        {sub}
+      </div>
+    </div>
+  );
+};
+
+/** Track progress — vertical step ladder filling in order. */
+export const TrackProgress: React.FC<{ steps?: string[]; delay?: number }> = ({ steps = ["01", "02", "03", "04"], delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = Math.max(0, (frame - delay) / fps);
+  const active = Math.min(steps.length, Math.floor(t * 1.6));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      {steps.map((s, i) => {
+        const on = i < active;
+        return (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 62, height: 62, borderRadius: 18, border: "2px solid #fff",
+              background: on ? "#fff" : "transparent", color: on ? "#000" : "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 26,
+              transform: on ? "scale(1.08)" : "scale(1)",
+            }}>{s}</div>
+            {i < steps.length - 1 && <div style={{ width: 26, height: 4, borderRadius: 99, background: on ? "#fff" : "rgba(255,255,255,0.3)" }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** Cloud tag — a cluster of keyword pills drifting slowly. */
+export const CloudTag: React.FC<{ tags?: string[]; delay?: number }> = ({ tags = ["AGENT", "MEMORY", "TOOLS", "PROMPTS"], delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const t = (frame - delay) / 60;
+  return (
+    <div style={{ position: "relative", width: 600, height: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {tags.map((tag, i) => {
+        const ang = (i / tags.length) * Math.PI * 2 + t * 0.22;
+        const x = 260 + Math.cos(ang) * 170;
+        const y = 130 + Math.sin(ang) * 75;
+        return (
+          <div key={i} style={{
+            position: "absolute", left: x - 70, top: y - 24,
+            fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 28, letterSpacing: "0.06em",
+            color: "#fff", border: "2px solid rgba(255,255,255,0.7)", borderRadius: 99, padding: "12px 22px",
+            opacity: 0.75 + 0.25 * Math.sin(ang * 2),
+          }}>
+            {tag}
+          </div>
+        );
+      })}
+      {/* center dot */}
+      <div style={{ width: 14, height: 14, borderRadius: 99, background: "#fff", opacity: 0.9 }} />
+    </div>
+  );
+};
+
+/** Card fan — three tapering cards fanning out from a pivot (stacked deck). */
+export const CardFan: React.FC<{ delay?: number }> = ({ delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 16, stiffness: 70 } });
+  const cards = [
+    { rot: -24, x: -120, txt: "IDEA" },
+    { rot: 0, x: 0, txt: "BUILD" },
+    { rot: 24, x: 120, txt: "SHIP" },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, width: "100%" }}>
+      {cards.map((c, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          transform: `translateX(${c.x * p}px) rotate(${c.rot * p}deg)`,
+          width: 200, height: 280, borderRadius: 18,
+          border: "3px solid #fff", background: i === 1 ? "#fff" : "transparent",
+          color: i === 1 ? "#000" : "#fff",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, letterSpacing: "0.1em",
+          opacity: 0.4 + 0.6 * p,
+        }}>
+          {c.txt}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Camera pip — viewfinder frame + REC dot pulsing + corner brackets. */
+export const CameraPip: React.FC<{ label?: string; delay?: number }> = ({ label = "REC", delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const t = Math.max(0, (frame - delay) / 60);
+  const blink = Math.floor(t * 2) % 2 === 0;
+  const c = 30, gap = 22;
+  return (
+    <div style={{ position: "relative", width: 560, height: 340, border: "3px solid rgba(255,255,255,0.5)", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {[
+        `M ${gap} ${gap + c} L ${gap} ${gap} L ${gap + c} ${gap}`,
+        `M ${560 - gap - c} ${gap} L ${560 - gap} ${gap} L ${560 - gap} ${gap + c}`,
+        `M ${gap} ${340 - gap - c} L ${gap} ${340 - gap} L ${gap + c} ${340 - gap}`,
+        `M ${560 - gap - c} ${340 - gap} L ${560 - gap} ${340 - gap} L ${560 - gap} ${340 - gap - c}`,
+      ].map((d, i) => (
+        <svg key={i} width={560} height={340} style={{ position: "absolute", inset: 0 }} viewBox="0 0 560 340">
+          <path d={d} fill="none" stroke="#fff" strokeWidth={4} />
+        </svg>
+      ))}
+      <div style={{ opacity: blink ? 1 : 0.25, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 18, height: 18, borderRadius: 99, background: "#fff" }} />
+        <div style={{ fontFamily: MONO, fontSize: 30, color: "#fff", letterSpacing: "0.2em" }}>{label}</div>
+      </div>
+      {/* rule-of-thirds grid */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-evenly", padding: "0 10%" }}>
+        {[0, 1].map((i) => <div key={i} style={{ width: "100%", height: 1, background: "rgba(255,255,255,0.12)" }} />)}
+      </div>
+    </div>
+  );
+};
+
+/** World grid clock — 4 tiles with city:time, one highlighted cycling. */
+export const WorldClock: React.FC<{ delay?: number }> = ({ delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const t = Math.max(0, (frame - delay) / 60);
+  const active = Math.floor(t) % 4;
+  const cities = [
+    { city: "JKT", off: 7 },
+    { city: "NYC", off: -4 },
+    { city: "LON", off: 1 },
+    { city: "TYO", off: 9 },
+  ];
+  const hh = (off: number) => ((9 + off + 24) % 24);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, width: 520 }}>
+      {cities.map((c, i) => (
+        <div key={i} style={{
+          border: `2px solid ${i === active ? "#fff" : "rgba(255,255,255,0.25)"}`,
+          borderRadius: 14, padding: "18px 20px", textAlign: "center",
+          background: i === active ? "#fff" : "transparent",
+          color: i === active ? "#000" : "#fff",
+        }}>
+          <div style={{ fontFamily: MONO, fontSize: 30, letterSpacing: "0.1em" }}>{c.city}</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 46, lineHeight: 1.15 }}>{String(hh(c.off)).padStart(2, "0")}:00</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Percentage hands — two pill hands meeting a rising % meter (score vibe). */
+export const PercentageHands: React.FC<{ delay?: number }> = ({ delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 18, stiffness: 60 } });
+  const val = Math.round(68 + 27 * p);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24, width: "100%" }}>
+      <div style={{ display: "flex", gap: 26 }}>
+        {[0, 1].map((i) => (
+          <div key={i} style={{
+            width: 90, height: 150, borderRadius: 45,
+            border: "3px solid #fff", background: "transparent",
+            transform: `translateY(${(1 - p) * 90}px)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{ width: 40, height: i === 0 ? 26 : 20, borderRadius: 99, background: "#fff", transform: "rotate(-30deg)" }} />
+            <div style={{ width: 40, height: 22, borderRadius: 99, background: "#fff", marginLeft: -8, transform: "rotate(30deg)" }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 90, lineHeight: 1, color: "#fff" }}>
+        {val}<span style={{ fontSize: 44, color: "rgba(255,255,255,0.6)" }}>%</span>
+      </div>
+      <div style={{ width: "70%", height: 8, borderRadius: 99, background: "rgba(255,255,255,0.2)", overflow: "hidden" }}>
+        <div style={{ width: `${val}%`, height: "100%", background: "#fff", borderRadius: 99 }} />
+      </div>
+    </div>
+  );
+};
+
+/** Padlock pulse — lock icon with expanding ripple ring + OPEN/CLOSED state. */
+export const PadlockPulse: React.FC<{ closed?: boolean; delay?: number }> = ({ closed = false, delay = 0 }) => {
+  const frame = useCurrentFrame();
+  const t = Math.max(0, (frame - delay) / 60);
+  const ringR = 40 + (t % 2) * 46;
+  const ringO = Math.max(0, 1 - (t % 2)) * 0.8;
+  return (
+    <div style={{ position: "relative", width: 260, height: 280, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+      <div style={{ position: "relative", width: 180, height: 180, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* ripple rings */}
+        {[0, 1].map((i) => {
+          const r = 40 + (((t + i * 1) % 2)) * 46;
+          const o = Math.max(0, 1 - ((t + i * 1) % 2)) * 0.7;
+          return (
+            <div key={i} style={{
+              position: "absolute", width: r * 2, height: r * 2, borderRadius: 99,
+              border: "2px solid rgba(255,255,255,0.6)", opacity: o,
+            }} />
+          );
+        })}
+        {/* lock body */}
+        <div style={{ width: 110, height: 84, borderRadius: 14, border: "3px solid #fff", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 14, height: 26, borderRadius: 99, background: "#fff", opacity: closed ? 1 : 0.35 }} />
+        </div>
+        {/* shackle */}
+        <div style={{ position: "absolute", top: 22, width: 66, height: 60, borderRadius: 33, border: "3px solid #fff", borderBottom: "none" }} />
+      </div>
+      <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 34, letterSpacing: "0.25em", color: "#fff" }}>
+        {closed ? "LOCKED" : "OPEN"}
+      </div>
+    </div>
+  );
+};
