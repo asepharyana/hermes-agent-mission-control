@@ -763,3 +763,154 @@ export const MiniKaraoke: React.FC<{
     </div>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCENE ROUND 2 — 4 more creative scene types (mono flat).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Quote scene — oversized quotation mark + emphasized excerpt + attribution. */
+export const QuoteScene: React.FC<{ text: string; size?: number }> = ({ text, size = 50 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame, fps, config: { damping: 16, stiffness: 70 } });
+  const words = text.split(" ");
+  const quote = words.length > 8 ? words.slice(0, -3).join(" ") : text;
+  const byline = words.length > 8 ? words.slice(-3).join(" ") : "";
+  return (
+    <div style={{ position: "absolute", left: "10%", right: "10%", top: "24%", textAlign: "center" }}>
+      <div
+        style={{
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 190, lineHeight: 0.6,
+          color: "rgba(255,255,255,0.25)", transform: `translateY(${(1 - p) * 40}px)`,
+        }}
+      >
+        &ldquo;
+      </div>
+      <div
+        style={{
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: size, lineHeight: 1.2,
+          letterSpacing: "-0.02em", color: "#ffffff", marginTop: -20,
+          opacity: p,
+        }}
+      >
+        {quote}
+      </div>
+      {byline && (
+        <div
+          style={{
+            marginTop: 26, display: "inline-block", borderTop: "2px solid rgba(255,255,255,0.6)",
+            paddingTop: 14, fontFamily: FONT_BODY, fontWeight: 700, fontSize: 26,
+            color: "rgba(255,255,255,0.75)", letterSpacing: "0.12em", textTransform: "uppercase",
+            opacity: p,
+          }}
+        >
+          — {byline}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Podium scene — 1-2-3 columns with the middle one elevated (ranking). */
+export const PodiumScene: React.FC<{ text: string; size?: number }> = ({ text, size = 36 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame, fps, config: { damping: 16, stiffness: 80 } });
+  const words = text.split(" ");
+  const picks = words.length >= 3 ? [words[0], words[1], words[2]] : ["TOP", "3", "PICKS"];
+  const heights = [200, 280, 150];
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, top: "26%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 30 }}>
+      {picks.map((w, i) => (
+        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: size,
+              color: i === 1 ? "#000" : "#fff", textAlign: "center",
+              transform: `translateY(${(1 - p) * 80}px)`, opacity: p,
+              width: 210, lineHeight: 1.15,
+            }}
+          >
+            {w}
+          </div>
+          <div
+            style={{
+              width: 210, height: 70 + (heights[i] - 70) * p,
+              background: i === 1 ? "#fff" : "rgba(255,255,255,0.25)",
+              border: "2px solid #fff", borderRadius: 14,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 44, color: i === 1 ? "#000" : "#fff",
+            }}
+          >
+            {i + 1}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Grid list — 2×2 keyword tiles popping in with check corners. */
+export const GridListScene: React.FC<{ text: string; size?: number }> = ({ text, size = 34 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const words = text.split(" ");
+  const tiles = words.length >= 4 ? words.slice(0, 4) : ["AGENT", text.slice(0, 12).toUpperCase(), "TOOLS", "MEMORY"];
+  return (
+    <div style={{ position: "absolute", left: "14%", right: "14%", top: "30%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      {tiles.map((w, i) => {
+        const p = spring({ frame: Math.max(0, frame - i * 6), fps, config: { damping: 16, stiffness: 100 } });
+        const r = i % 2 === 0 ? 14 : 20;
+        return (
+          <div
+            key={i}
+            style={{
+              border: "2px solid rgba(255,255,255,0.9)", borderRadius: 18,
+              minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: size,
+              color: "#fff", textAlign: "center", padding: "0 14px",
+              transform: `scale(${0.4 + p * 0.6}) rotate(${(r - 14) * (1 - p)}deg)`,
+              opacity: p,
+            }}
+          >
+            {w}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+/** Scoreboard — Q&A panel (question highlighted, answer slides in). */
+export const ScoreboardScene: React.FC<{ text: string; size?: number }> = ({ text, size = 38 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const p = spring({ frame, fps, config: { damping: 16, stiffness: 75 } });
+  const words = text.split(" ");
+  const q = words.slice(0, Math.ceil(words.length / 2)).join(" ");
+  const a = words.slice(Math.ceil(words.length / 2)).join(" ");
+  return (
+    <div style={{ position: "absolute", left: "10%", right: "10%", top: "26%" }}>
+      <div
+        style={{
+          background: "#fff", color: "#000", borderRadius: 18, padding: "26px 34px",
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: size, lineHeight: 1.2,
+          transform: `translateY(${(1 - p) * 60}px)`, opacity: p,
+        }}
+      >
+        <span style={{ opacity: 0.5, fontSize: size - 14, marginRight: 14 }}>Q</span>
+        {q}
+      </div>
+      <div
+        style={{
+          marginTop: 22, border: "2px solid #fff", borderRadius: 18, padding: "26px 34px",
+          fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: size - 6, lineHeight: 1.2,
+          color: "#fff", transform: `translateY(${(1 - p) * 60}px)`, opacity: Math.max(0, p * 2 - 1),
+        }}
+      >
+        <span style={{ opacity: 0.6, fontSize: size - 14, marginRight: 14 }}>A</span>
+        {a}
+      </div>
+    </div>
+  );
+};

@@ -13,6 +13,10 @@ import {
   CompareScene,
   BulletScene,
   BangScene,
+  QuoteScene,
+  PodiumScene,
+  GridListScene,
+  ScoreboardScene,
   MiniKaraoke,
 } from "./parts";
 import { TweetCard, ThreadCard, NewsCard } from "./cards";
@@ -147,7 +151,7 @@ export type Segment = {
   label?: string;
   sentences?: Sentence[];
   /** optional explicit scene override */
-  scene?: "title" | "stat" | "caption" | "cta" | "tweet" | "thread" | "news" | "terminal" | "compare" | "fix" | "bullets" | "bang";
+  scene?: "title" | "stat" | "caption" | "cta" | "tweet" | "thread" | "news" | "terminal" | "compare" | "fix" | "bullets" | "bang" | "quote" | "podium" | "gridlist" | "scoreboard";
   stat?: { value: string; label: string };
   /** source content (tweet/thread/news) — rendered as a visual card scene */
   source?: {
@@ -211,6 +215,12 @@ function pickScene(seg: Segment, index: number, seed = 0): Segment["scene"] | "c
   if (seg.stat) return "stat";
   const stat = extractStat(seg.text);
   if (stat) return "stat";
+  // creative scene variety (round 2): quote/podium/grid/scoreboard rotation
+  const j = (index + seed) % 8;
+  if (j === 3) return "quote";
+  if (j === 5) return "podium";
+  if (j === 6) return "gridlist";
+  if (j === 7) return "scoreboard";
   if (i % 3 === 2) return "title";
   return "caption";
 }
@@ -278,6 +288,58 @@ const Scene: React.FC<{
         <SlideMotion>
           {label ? <BrandTag label={label} /> : null}
           <BangScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "quote") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index + (seed || 0)} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <QuoteScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "podium") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index + (seed || 0)} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <PodiumScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "gridlist") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index + (seed || 0)} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <GridListScene text={text} />
+          <MiniKaraoke sentences={sentences} />
+          <ProgressBar total={duration} />
+        </SlideMotion>
+      </AbsoluteFill>
+    );
+  }
+  if (scene === "scoreboard") {
+    return (
+      <AbsoluteFill>
+        <SvgBackground variant={index + (seed || 0)} />
+        <SlideMotion>
+          {label ? <BrandTag label={label} /> : null}
+          <ScoreboardScene text={text} />
           <MiniKaraoke sentences={sentences} />
           <ProgressBar total={duration} />
         </SlideMotion>
